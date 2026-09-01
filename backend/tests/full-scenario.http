@@ -1,0 +1,764 @@
+###############################################################################
+# Remal API — Full End-to-End Test Scenario
+# Run top-to-bottom. Each request captures variables used by later requests.
+# Compatible with: VS Code REST Client extension, JetBrains HTTP client, .http runner.
+# Default base URL is HTTPS 7000; change @host if needed.
+###############################################################################
+
+@host = https://localhost:7000
+@contentType = application/json
+
+###############################################################################
+# 0. INFRA — Health + Public data (no auth)
+###############################################################################
+
+### 0.1 Health check
+GET {{host}}/health
+
+### 0.2 Public settings (shipping fee, currency, announcement)
+GET {{host}}/api/settings/public
+
+### 0.3 Featured products on the home page (best-sellers + new arrivals)
+GET {{host}}/api/products/featured
+
+
+###############################################################################
+# 1. PUBLIC CATALOG — anyone can browse
+###############################################################################
+
+### 1.1 List all products (default 20 per page)
+GET {{host}}/api/products
+
+### 1.2 List men perfumes only
+GET {{host}}/api/products?category=Men&page=1&pageSize=10
+
+### 1.3 Search by name
+GET {{host}}/api/products?search=oud
+
+### 1.4 List low-stock products (admin-style filter)
+GET {{host}}/api/products?lowStockOnly=true
+
+### 1.5 Capture the first product id
+# @name listProducts
+GET {{host}}/api/products?pageSize=1
+
+@productId = {{listProducts.response.body.data.items[0].id}}
+
+### 1.6 Get product detail
+GET {{host}}/api/products/{{productId}}
+
+### 1.7 Get related products
+GET {{host}}/api/products/{{productId}}/related?take=4
+
+### 1.8 Get product reviews (approved only)
+GET {{host}}/api/reviews/by-product/{{productId}}
+
+### 1.9 List bundles
+# @name listBundles
+GET {{host}}/api/bundles
+
+@bundleId = {{listBundles.response.body.data.items[0].id}}
+
+### 1.10 Get bundle detail
+GET {{host}}/api/bundles/{{bundleId}}
+
+### 1.11 List collections
+# @name listCollections
+GET {{host}}/api/collections
+
+@collectionId = {{listCollections.response.body.data[0].id}}
+
+### 1.12 Get collection detail
+GET {{host}}/api/collections/{{collectionId}}
+
+
+###############################################################################
+# 2. AUTH — Customer registration + login
+###############################################################################
+
+### 2.1 Register a new customer (gets 100 loyalty points + Customer role)
+POST {{host}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "test.customer@remal.eg",
+  "fullName": "عميل تجريبي",
+  "phone": "01000000000",
+  "password": "Test@123456",
+  "city": "القاهرة"
+}
+
+### 2.2 Login as that customer
+# @name loginCustomer
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test.customer@remal.eg",
+  "password": "Test@123456"
+}
+
+@customerToken = {{loginCustomer.response.body.data.accessToken}}
+
+### 2.3 Get current user profile
+GET {{host}}/api/auth/me
+Authorization: Bearer {{customerToken}}
+
+### 2.4 Update profile
+PUT {{host}}/api/auth/me
+Authorization: Bearer {{customerToken}}
+Content-Type: {{contentType}}
+
+{
+  "fullName": "عميل تجريبي محدّث",
+  "phone": "01000000000",
+  "city": "الإسكندرية",
+  "birthday": "1995-06-15T00:00:00Z"
+}
+
+### 2.5 Refresh access token (uses HttpOnly cookie automatically on browsers;
+###     for REST Client send the refresh in body)
+POST {{host}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "{{loginCustomer.response.body.data.refreshToken}}"
+}
+
+### 2.6 Forgot password (logs reset link in API console)
+POST {{host}}/api/auth/forgot-password
+Content-Type: {{contentType}}
+
+{
+  "email": "test.customer@remal.eg"
+}
+
+### 2.7 Change password (must be logged in)
+POST {{host}}/api/auth/change-password
+Authorization: Bearer {{customerToken}}
+Content-Type: {{contentType}}
+
+{
+  "currentPassword": "Test@123456",
+  "newPassword": "Test@1234567"
+}
+
+
+###############################################################################
+# 3. CUSTOMER JOURNEY — Wishlist → Cart → Loyalty
+###############################################################################
+
+### 3.1 Re-login with new password
+# @name reloginCustomer
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test.customer@remal.eg",
+  "password": "Test@1234567"
+}
+
+@customerToken = {{reloginCustomer.response.body.data.accessToken}}
+
+### 3.2 Add product to wishlist
+POST {{host}}/api/wishlist/{{productId}}
+Authorization: Bearer {{customerToken}}
+
+### 3.3 Get my wishlist
+GET {{host}}/api/wishlist
+Authorization: Bearer {{customerToken}}
+
+### 3.4 Remove from wishlist
+DELETE {{host}}/api/wishlist/{{productId}}
+Authorization: Bearer {{customerToken}}
+
+### 3.5 Add product (50ML) to cart
+POST {{host}}/api/cart/items
+Authorization: Bearer {{customerToken}}
+Content-Type: {{contentType}}
+
+{
+  "productId": "{{productId}}",
+  "volume": "50ML",
+  "quantity": 1
+}
+
+### 3.6 Add bundle to cart
+POST {{host}}/api/cart/items
+Authorization: Bearer {{customerToken}}
+Content-Type: {{contentType}}
+
+{
+  "bundleId": "{{bundleId}}",
+  "quantity": 1
+}
+
+### 3.7 Get my cart
+# @name getCart
+GET {{host}}/api/cart
+Authorization: Bearer {{customerToken}}
+
+@cartItemId = {{getCart.response.body.data.items[0].id}}
+
+### 3.8 Update cart item quantity
+PUT {{host}}/api/cart/items/{{cartItemId}}
+Authorization: Bearer {{customerToken}}
+Content-Type: {{contentType}}
+
+{
+  "quantity": 2
+}
+
+### 3.9 Remove an item
+DELETE {{host}}/api/cart/items/{{cartItemId}}
+Authorization: Bearer {{customerToken}}
+
+### 3.10 Clear entire cart
+DELETE {{host}}/api/cart
+Authorization: Bearer {{customerToken}}
+
+### 3.11 My loyalty balance (got 100 welcome points on register)
+GET {{host}}/api/loyalty/balance
+Authorization: Bearer {{customerToken}}
+
+### 3.12 Loyalty transactions
+GET {{host}}/api/loyalty/transactions
+Authorization: Bearer {{customerToken}}
+
+
+###############################################################################
+# 4. CHECKOUT — Place an order as guest (no auth needed)
+###############################################################################
+
+### 4.1 Validate a coupon
+POST {{host}}/api/coupons/validate
+Content-Type: {{contentType}}
+
+{
+  "code": "REMAL10",
+  "orderAmount": 1500
+}
+
+### 4.2 Place an order (guest checkout)
+# @name placeOrder
+POST {{host}}/api/orders
+Content-Type: {{contentType}}
+
+{
+  "customerName": "أحمد محمد",
+  "customerPhone": "01112223333",
+  "customerAddress": "القاهرة، التجمع الخامس، شارع التسعين",
+  "customerEmail": "ahmed@example.com",
+  "city": "القاهرة",
+  "paymentMethod": "CashOnDelivery",
+  "couponCode": "REMAL10",
+  "giftWrap": false,
+  "notes": "اتصل قبل التوصيل",
+  "items": [
+    {
+      "productId": "{{productId}}",
+      "volume": "50ML",
+      "quantity": 1
+    }
+  ]
+}
+
+@orderId = {{placeOrder.response.body.data.id}}
+@orderCode = {{placeOrder.response.body.data.code}}
+
+### 4.3 Track order publicly (just by code)
+GET {{host}}/api/orders/track/{{orderCode}}
+
+### 4.4 Get order detail by code
+GET {{host}}/api/orders/by-code/{{orderCode}}
+
+### 4.5 Submit a review (verified purchase)
+POST {{host}}/api/reviews
+Content-Type: {{contentType}}
+
+{
+  "productId": "{{productId}}",
+  "orderId": "{{orderId}}",
+  "customerName": "أحمد محمد",
+  "rating": 5,
+  "text": "العطر ممتاز، ثبات قوي وفوحان عالي."
+}
+
+
+###############################################################################
+# 5. ADMIN — Login as one of the 3 partners
+###############################################################################
+
+### 5.1 Login as admin
+# @name loginAdmin
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@remal.eg",
+  "password": "Admin@123456"
+}
+
+@adminToken = {{loginAdmin.response.body.data.accessToken}}
+
+### 5.2 Admin profile
+GET {{host}}/api/auth/me
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# 6. ADMIN — Product CRUD
+###############################################################################
+
+### 6.1 Create a new product (with all 3 sizes)
+# @name createProduct
+POST {{host}}/api/products
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "name": "إكسپريسو نوار",
+  "nameEn": "Espresso Noir",
+  "inspiredBy": "خمرة قهوة",
+  "category": "Unisex",
+  "status": "Active",
+  "imageUrl": "https://remal-perfume.runasp.net/espressoNoir.webp",
+  "notesTop": "قهوة محمصة، كاردامون",
+  "notesHeart": "فانيليا، إيريس",
+  "notesBase": "عنبر، تونكا",
+  "description": "إصدار جديد لعشاق القهوة بنوتات دافية.",
+  "sizes": [
+    { "volume": "30ML",  "price": 600, "stock": 5 },
+    { "volume": "50ML",  "price": 950, "stock": 10 },
+    { "volume": "100ML", "price": 1500, "stock": 4 }
+  ]
+}
+
+@newProductId = {{createProduct.response.body.data.id}}
+
+### 6.2 Update the product
+PUT {{host}}/api/products/{{newProductId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "name": "إكسپريسو نوار",
+  "nameEn": "Espresso Noir",
+  "inspiredBy": "خمرة قهوة",
+  "category": "Unisex",
+  "status": "Active",
+  "imageUrl": "https://remal-perfume.runasp.net/espressoNoir.webp",
+  "notesTop": "قهوة محمصة، كاردامون، حبهان",
+  "notesHeart": "فانيليا، إيريس",
+  "notesBase": "عنبر، تونكا، خشب الأرز",
+  "description": "إصدار محدث.",
+  "sizes": [
+    { "volume": "30ML",  "price": 650, "stock": 5 },
+    { "volume": "50ML",  "price": 1000, "stock": 10 },
+    { "volume": "100ML", "price": 1600, "stock": 4 }
+  ]
+}
+
+### 6.3 Adjust stock for a specific size
+POST {{host}}/api/products/{{newProductId}}/stock
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "reason": "استلام دفعة جديدة",
+  "adjustments": [
+    { "volume": "50ML",  "newStock": 25 },
+    { "volume": "100ML", "newStock": 10 }
+  ]
+}
+
+### 6.4 Delete (soft) the test product
+DELETE {{host}}/api/products/{{newProductId}}
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# 7. ADMIN — Bundle + Collection CRUD
+###############################################################################
+
+### 7.1 Create a bundle
+# @name createBundle
+POST {{host}}/api/bundles
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "name": "باقة الاختبار",
+  "nameEn": "Test Bundle",
+  "description": "باقة تجريبية مكوّنة من منتجين.",
+  "tag": "حصري",
+  "imageUrl": "https://remal-perfume.runasp.net/freshSummer.webp",
+  "originalPrice": 2200,
+  "finalPrice": 1800,
+  "stock": 5,
+  "status": "Active",
+  "items": [
+    { "productId": "{{productId}}", "volume": "50ML" },
+    { "productId": "{{productId}}", "volume": "100ML" }
+  ]
+}
+
+@newBundleId = {{createBundle.response.body.data.id}}
+
+### 7.2 Update bundle
+PUT {{host}}/api/bundles/{{newBundleId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "name": "باقة الاختبار V2",
+  "nameEn": "Test Bundle V2",
+  "description": "محدّثة",
+  "tag": "حصري",
+  "imageUrl": "https://remal-perfume.runasp.net/freshSummer.webp",
+  "originalPrice": 2200,
+  "finalPrice": 1700,
+  "stock": 7,
+  "status": "Active",
+  "items": [
+    { "productId": "{{productId}}", "volume": "50ML" }
+  ]
+}
+
+### 7.3 Delete bundle
+DELETE {{host}}/api/bundles/{{newBundleId}}
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# 8. ADMIN — Orders management
+###############################################################################
+
+### 8.1 List orders with filters
+GET {{host}}/api/orders?status=Pending&page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+### 8.2 Search orders by customer name
+GET {{host}}/api/orders?search=أحمد
+Authorization: Bearer {{adminToken}}
+
+### 8.3 Get full order details
+GET {{host}}/api/orders/{{orderId}}
+Authorization: Bearer {{adminToken}}
+
+### 8.4 Move order Pending → Preparing
+POST {{host}}/api/orders/{{orderId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "newStatus": "Preparing",
+  "note": "تم تأكيد الطلب وبدأ التجهيز"
+}
+
+### 8.5 Move to Shipping
+POST {{host}}/api/orders/{{orderId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "newStatus": "Shipping",
+  "note": "اتسلّم للمندوب"
+}
+
+### 8.6 Move to Delivered
+POST {{host}}/api/orders/{{orderId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "newStatus": "Delivered",
+  "note": "العميل استلم"
+}
+
+
+###############################################################################
+# 9. ADMIN — Customers
+###############################################################################
+
+### 9.1 List customers
+# @name listCustomers
+GET {{host}}/api/customers?page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+@customerListId = {{listCustomers.response.body.data.items[0].id}}
+
+### 9.2 Get customer detail
+GET {{host}}/api/customers/{{customerListId}}
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# 10. ADMIN — Coupons
+###############################################################################
+
+### 10.1 List coupons
+GET {{host}}/api/coupons
+Authorization: Bearer {{adminToken}}
+
+### 10.2 Create coupon
+# @name createCoupon
+POST {{host}}/api/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "code": "TESTCOUPON",
+  "type": "Percent",
+  "value": 15,
+  "minOrderAmount": 800,
+  "maxUses": 10,
+  "expiresAt": "2027-12-31T23:59:59Z",
+  "isActive": true
+}
+
+@newCouponId = {{createCoupon.response.body.data.id}}
+
+### 10.3 Toggle coupon
+POST {{host}}/api/coupons/{{newCouponId}}/toggle
+Authorization: Bearer {{adminToken}}
+
+### 10.4 Update coupon
+PUT {{host}}/api/coupons/{{newCouponId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "code": "TESTCOUPON",
+  "type": "Percent",
+  "value": 20,
+  "minOrderAmount": 800,
+  "maxUses": 10,
+  "expiresAt": "2027-12-31T23:59:59Z",
+  "isActive": true
+}
+
+### 10.5 Delete coupon
+DELETE {{host}}/api/coupons/{{newCouponId}}
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# 11. ADMIN — Reviews moderation
+###############################################################################
+
+### 11.1 List pending reviews
+# @name pendingReviews
+GET {{host}}/api/reviews?status=Pending
+Authorization: Bearer {{adminToken}}
+
+@pendingReviewId = {{pendingReviews.response.body.data[0].id}}
+
+### 11.2 Approve a review
+POST {{host}}/api/reviews/{{pendingReviewId}}/moderate
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "status": "Approved",
+  "note": "تم القبول"
+}
+
+
+###############################################################################
+# 12. ADMIN — Accounting (the partners' module)
+###############################################################################
+
+### 12.1 Get P&L summary (revenue / expenses / per-partner balance / suggested settlements)
+GET {{host}}/api/accounting/summary
+Authorization: Bearer {{adminToken}}
+
+### 12.2 List expenses
+GET {{host}}/api/accounting/expenses?page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+### 12.3 Find a partner ID to use as PaidBy
+# @name partnersList
+GET {{host}}/api/team
+Authorization: Bearer {{adminToken}}
+
+@partnerAId = {{partnersList.response.body.data[0].id}}
+@partnerBId = {{partnersList.response.body.data[1].id}}
+
+### 12.4 Create an expense
+# @name createExpense
+POST {{host}}/api/accounting/expenses
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "date": "2026-05-13T00:00:00Z",
+  "paidById": "{{partnerAId}}",
+  "amount": 3500,
+  "category": "Inventory",
+  "description": "شراء زجاجات وزيوت عطرية"
+}
+
+@expenseId = {{createExpense.response.body.data.id}}
+
+### 12.5 Update expense
+PUT {{host}}/api/accounting/expenses/{{expenseId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "date": "2026-05-13T00:00:00Z",
+  "paidById": "{{partnerAId}}",
+  "amount": 3700,
+  "category": "Inventory",
+  "description": "شراء زجاجات وزيوت عطرية + ضريبة"
+}
+
+### 12.6 Record a settlement (partner B → partner A)
+# @name createSettlement
+POST {{host}}/api/accounting/settlements
+Authorization: Bearer {{adminToken}}
+Content-Type: {{contentType}}
+
+{
+  "fromUserId": "{{partnerBId}}",
+  "toUserId": "{{partnerAId}}",
+  "amount": 1200,
+  "note": "تسوية مايو"
+}
+
+@settlementId = {{createSettlement.response.body.data.id}}
+
+### 12.7 List settlements
+GET {{host}}/api/accounting/settlements
+Authorization: Bearer {{adminToken}}
+
+### 12.8 Delete the test settlement + expense
+DELETE {{host}}/api/accounting/settlements/{{settlementId}}
+Authorization: Bearer {{adminToken}}
+
+###
+DELETE {{host}}/api/accounting/expenses/{{expenseId}}
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# 13. ADMIN — Audit log + Reports + Team
+###############################################################################
+
+### 13.1 Full audit log
+GET {{host}}/api/audit?page=1&pageSize=50
+Authorization: Bearer {{adminToken}}
+
+### 13.2 Filter audit by category (e.g. orders)
+GET {{host}}/api/audit?category=Order
+Authorization: Bearer {{adminToken}}
+
+### 13.3 Dashboard overview KPIs
+GET {{host}}/api/reports/overview
+Authorization: Bearer {{adminToken}}
+
+### 13.4 Sales report — last 30 days
+GET {{host}}/api/reports?days=30
+Authorization: Bearer {{adminToken}}
+
+### 13.5 Sales report — last 7 days
+GET {{host}}/api/reports?days=7
+Authorization: Bearer {{adminToken}}
+
+### 13.6 Team list (the 3 partners + admin)
+GET {{host}}/api/team
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# 14. PUBLIC — Newsletter + Contact
+###############################################################################
+
+### 14.1 Subscribe to newsletter
+POST {{host}}/api/newsletter/subscribe
+Content-Type: {{contentType}}
+
+{
+  "email": "subscriber@example.com",
+  "source": "footer"
+}
+
+### 14.2 Contact form
+POST {{host}}/api/contact
+Content-Type: {{contentType}}
+
+{
+  "name": "مايا حسن",
+  "phone": "01098765432",
+  "email": "maya@example.com",
+  "message": "أحب أعرف معاد توفير عطر فريش سَمر حجم ١٠٠ مل."
+}
+
+
+###############################################################################
+# 15. PAYMENTS — Paymob (only works with real Paymob credentials in appsettings)
+###############################################################################
+
+### 15.1 Create a Paymob session for an existing order
+POST {{host}}/api/payments/paymob/session/{{orderId}}
+
+
+###############################################################################
+# 16. LOGOUT — End the session
+###############################################################################
+
+### 16.1 Logout customer
+POST {{host}}/api/auth/logout
+Authorization: Bearer {{customerToken}}
+
+### 16.2 Logout admin
+POST {{host}}/api/auth/logout
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# 17. NEGATIVE — Test error paths quickly
+###############################################################################
+
+### 17.1 Wrong password
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@remal.eg",
+  "password": "wrong"
+}
+
+### 17.2 Validation error (missing required field)
+POST {{host}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "bad-email",
+  "password": "short"
+}
+
+### 17.3 Unauthorized access (no token)
+GET {{host}}/api/orders
+
+### 17.4 Not found
+GET {{host}}/api/products/00000000-0000-0000-0000-000000000000
+
+### 17.5 Rate limit — hammer the auth endpoint
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+
+{ "email": "x@x.com", "password": "x" }
+
+###
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+
+{ "email": "x@x.com", "password": "x" }
+
+###
+POST {{host}}/api/auth/login
+Content-Type: {{contentType}}
+
+{ "email": "x@x.com", "password": "x" }
