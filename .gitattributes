@@ -14,6 +14,5 @@
 *.woff      binary
 *.woff2     binary
 
-# Keep generated/vendored files out of language stats and diffs.
+# Keep third-party vendored code out of language stats.
 backend/src/Remal.Api/wwwroot/signalr.min.js  linguist-vendored
-backend/src/Remal.Infrastructure/Migrations/* linguist-generated
