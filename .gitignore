@@ -1,0 +1,140 @@
+##############################################################################
+# Secrets — never commit
+##############################################################################
+appsettings.Production.json
+appsettings.*.Production.json
+deploy.secrets.json
+*.secrets.json
+!*.secrets.template.json
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key
+*.pem
+secrets.json
+
+##############################################################################
+# Build output
+##############################################################################
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+bld/
+publish/
+[Pp]ublish[Oo]utput/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+##############################################################################
+# IDE / tooling
+##############################################################################
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+##############################################################################
+# Logs & runtime
+##############################################################################
+logs/
+*.log
+deploy.log
+
+##############################################################################
+# Test / coverage
+##############################################################################
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.trx
+BenchmarkDotNet.Artifacts/
+
+##############################################################################
+# Packages
+##############################################################################
+node_modules/
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!packages/build/
+
+##############################################################################
+# Local caches / generated assets
+##############################################################################
+wwwroot/imgcache/
+imgcache/
+*.br
+*.gz
+
+##############################################################################
+# Project-local working files
+##############################################################################
+*.bak
+*.pre-split.bak
+.claude/
+
+##############################################################################
+# Not part of the deliverable software
+#   - internal Arabic working docs (audits, briefs, partner notes)
+#   - marketing content decks
+#   - one-off SQL maintenance scripts (some contain live customer data)
+#   - host-specific FTP deploy script; Docker is the documented path
+##############################################################################
+BLOGGER-BRIEF.md
+CRITICAL-CRASH-REPORT.md
+HOW-TO-DEPLOY.md
+IMAGE-GUIDE.md
+MESSAGE-TO-PARTNER.md
+PERF-SPLIT-REPORT.md
+PRE-CAMPAIGN-AUDIT.md
+QA-AUDIT-REPORT.md
+SETUP-GUIDE-DESKTOP.md
+SOCIAL-ACCOUNTS-SETUP.md
+SYSTEM-DOCUMENTATION.md
+content-plan/
+backend/*.sql
+deploy.ps1
+deploy.secrets.template.json
+build-assets.py
+
+# Local authoring copies of the static frontend.
+# deploy.ps1 syncs these into backend/src/Remal.Api/wwwroot, which is the copy
+# ASP.NET actually serves and the copy tracked here — keeping both in git would
+# duplicate ~1.9 MB of identical files.
+/remal.html
+/remal-dashboard.html
+/links.html
+/sw.js
+/signalr.min.js
+/assets/
+/favicon.ico
+/favicon-192.png
+/favicon-512.png
+/apple-touch-icon.png
+/og-image.png
