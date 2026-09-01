@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# لوحة التحكم والـ API — ممنوعة من الفهرسة
+Disallow: /api/
+Disallow: /remal-dashboard.html
+Disallow: /admin/
+
+# صفحات خاصة بالمستخدم — لا قيمة لفهرستها
+Disallow: /checkout
+Disallow: /cart
+Disallow: /account
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://remalfragrances.com/sitemap.xml

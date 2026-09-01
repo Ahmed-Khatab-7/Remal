@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750" role="img" aria-label="Remal">
+  <rect width="600" height="750" fill="#f6f4f0"/>
+  <g fill="none" stroke="#c9c2b6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="215" y="300" width="170" height="270" rx="26"/>
+    <path d="M262 300v-56h76v56"/>
+    <rect x="252" y="190" width="96" height="56" rx="16"/>
+    <path d="M248 400h104" stroke-width="4"/>
+  </g>
+  <text x="300" y="648" text-anchor="middle" font-family="Montserrat, Segoe UI, sans-serif"
+        font-size="26" letter-spacing="7" fill="#b3aa9c">REMAL</text>
+</svg>

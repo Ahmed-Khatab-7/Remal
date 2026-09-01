@@ -1,0 +1,2462 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Disable iOS Safari auto-detection (was turning order codes / numbers / sidebar tab text into blue tel: links) -->
+    <meta name="format-detection" content="telephone=no">
+    <meta name="format-detection" content="email=no">
+    <meta name="format-detection" content="address=no">
+    <meta name="format-detection" content="date=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- منع وميض الهيرو: لو الرابط لصفحة فرعية (/perfumes مثلاً) نخفي الرئيسية فوراً
+         قبل أول رسمة، والراوتر يشيل الإخفاء بعد ما يفعّل الصفحة الصحيحة. -->
+    <script>
+    (function () {
+        try {
+            var p = location.pathname.replace(/^\/+|\/+$/g, '');
+            if (p && p !== 'remal.html' && p !== 'index.html') {
+                var s = document.createElement('style');
+                s.id = 'preRouteStyle';
+                s.textContent = '#home{display:none!important}';
+                document.head.appendChild(s);
+            }
+        } catch (e) {}
+    })();
+    </script>
+    <!-- تثبيت اللغة قبل أول رسمة: نقرأ التفضيل المحفوظ (remal_lang) ونضبط اتجاه الصفحة
+         واللغة فورًا، عشان الصفحة متبدأش عربي وترجع تقلب إنجليزي بعد كل ريفريش. -->
+    <script>
+    (function () {
+        try {
+            // ترتيب الأولوية:
+            // 1) اختيار الزائر نفسه (remal_lang) — أعلى أولوية دايمًا
+            // 2) اللغة الافتراضية اللي حددها الأدمن (remal_default_lang، مكاشية من
+            //    /api/settings/public في الزيارة السابقة) — عشان تتطبق قبل أول رسمة
+            // ملاحظة: لو الزائر ما اختارش، بنسيب remal_lang فاضي عشان تغيير الأدمن
+            // للافتراضي ينعكس عليه تلقائيًا في الزيارة الجاية.
+            var chosen = localStorage.getItem('remal_lang');
+            var adminDefault = localStorage.getItem('remal_default_lang');
+            var lang = chosen || adminDefault || 'ar';
+            if (lang === 'en') {
+                document.documentElement.setAttribute('lang', 'en');
+                document.documentElement.setAttribute('dir', 'ltr');
+            }
+        } catch (e) {}
+    })();
+    </script>
+    <!-- ارتفاع الشاشة الحقيقي (--app-height): على أندرويد شريط العنوان المتحرك بيخلي 100vh
+         أطول من المنطقة المرئية فالأزرار السفلية تتقطع. window.innerHeight هو الرقم الصحيح
+         الوحيد المدعوم على كل متصفحات أندرويد. نحدّثه عند التحميل وتغيير الاتجاه فقط —
+         مش عند كل scroll لأن ظهور/اختفاء شريط العنوان مايستدعيش إعادة تخطيط. -->
+    <script>
+    (function () {
+        // ⚠️ القيمة تُقاس **مرة واحدة** فقط لكل عرض شاشة، وتُقفل بعدها.
+        // السبب: window.innerHeight بيتغيّر أثناء التحميل نفسه (شريط عنوان المتصفح
+        // بيتمدد/ينكمش بين parse و DOMContentLoaded و load و pageshow) — فلو حدّثناها
+        // عند كل مرحلة كان ارتفاع الهيرو بيتغيّر قدام العين عند كل ريفريش أو رجوع
+        // للصفحة الرئيسية. نقفلها على أول قياس صالح، وما نعيد القياس إلا لو **عرض**
+        // الشاشة اتغيّر فعلاً (دوران/تقسيم شاشة) — مش عند تغيّر الارتفاع لوحده
+        // (اللي بيحصل مع شريط العنوان والكيبورد).
+        var LOCKED = false;
+        function setAppHeight(force) {
+            try {
+                if (LOCKED && !force) return;
+                var h = window.innerHeight;
+                // حماية: ارتفاع صفر/غير منطقي (تابات مخفية) — الـ CSS عنده fallback 100dvh
+                if (!h || h < 200) return;
+                document.documentElement.style.setProperty('--app-height', h + 'px');
+                window.__lastW = window.innerWidth;
+                LOCKED = true;
+            } catch (e) {}
+        }
+        // القياس الوحيد المسموح بيه قبل أول رسمة. لو فشل (ارتفاع غير صالح لحظة الـ parse)
+        // **ما بنحاولش تاني بعد كده** — لأن ضبط --app-height بعد ما الهيرو اترسم بـ 100dvh
+        // هيغيّر ارتفاعه قدام العين. الـ CSS بيفضل على 100dvh وهو مستقر تمامًا.
+        setAppHeight();
+        // إعادة القياس المشروعة الوحيدة: تغيّر **عرض** الشاشة (دوران أو تقسيم شاشة) —
+        // ساعتها إعادة التخطيط متوقّعة أصلاً فمفيش قفزة مفاجئة.
+        function remeasureIfWidthChanged() {
+            if (window.innerWidth === window.__lastW) return;
+            window.__lastW = window.innerWidth;
+            setAppHeight(true);
+        }
+        window.addEventListener('orientationchange', function () { setTimeout(function () { setAppHeight(true); }, 150); });
+        window.addEventListener('resize', remeasureIfWidthChanged);
+        window.__lastW = window.innerWidth;
+    })();
+    </script>
+    <!-- تسريع أول تحميل لصور الهيرو/المنتجات (DNS+TLS مبكرًا لدومين الصور) -->
+    <link rel="preconnect" href="https://remal-perfume.runasp.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <title>رمال - Remal Fragrances | عطور نيش فاخرة — Remal Perfume Egypt</title>
+
+    <!-- ================= SEO ================= -->
+    <meta name="description" content="Remal Fragrances | متجر عطور رجالية ونسائية يقدم عطورًا أصلية ومستوحاة بخامات مختارة ومجموعات اكتشاف تناسب جميع الأذواق.">
+    <meta name="keywords" content="عطور رمال, رمال, remal perfume, remal fragrance, remal perfumes, remal fragrances, Remal, عطور, نيش, niche perfume Egypt, عطور نيش, عطور رجالي, عطور نسائي, باقات عطور, عطور مصر, برفانات, بارفان">
+    <meta name="author" content="Remal Fragrances">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <meta name="theme-color" content="#111111">
+    <meta name="facebook-domain-verification" content="n180nvifyw7j4ers1pcxy5kuixfpik" />
+    <!-- Meta Pixel — التركيب الرسمي من Meta، متزامن وقبل أي سكربت تاني.
+         المعرّف قيمة عامة (بتبان في سورس الصفحة لأي حد) فوجوده هنا مقصود:
+         التحميل من إعدادات السيرفر كان بيأخّر التهيئة لحد ما ينزل رد الـ API. -->
+    <script>
+    window.REMAL_META_PIXEL_ID = '1055439453508681';
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    (function () {
+        try {
+            var local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (local) return;
+            // Advanced Matching: أي بيانات عميل محفوظة من زيارة سابقة بتترسل مع التهيئة.
+            // Meta بتشفّرها في المتصفح قبل ما تخرج، والنتيجة قفزة في Event Match Quality.
+            var am = null;
+            try { am = JSON.parse(localStorage.getItem('remal_am') || 'null'); } catch (e) {}
+            if (am && typeof am === 'object') fbq('init', window.REMAL_META_PIXEL_ID, am);
+            else fbq('init', window.REMAL_META_PIXEL_ID);
+            fbq('track', 'PageView');
+        } catch (e) {}
+    })();
+    </script>
+    <noscript><img height="1" width="1" style="display:none" alt=""
+      src="https://www.facebook.com/tr?id=1055439453508681&ev=PageView&noscript=1" /></noscript>
+    <!-- ===== SOCIAL-META:START =====
+         كل ما بين العلامتين دول **بيتستبدل من السيرفر** (SocialMetaMiddleware) حسب
+         الصفحة المطلوبة. ليه: واتساب وماسنجر وفيسبوك **ما بيشغّلوش JavaScript** —
+         بيقروا الـ HTML الخام وبس. فأي تحديث للوسوم دي بجافاسكريبت ما بيوصلهمش،
+         وكل رابط منتج كان بيطلع بنفس صورة وعنوان الصفحة الرئيسية.
+         والأخطر: canonical كان ثابت على "/" في كل الصفحات، يعني بنقول لجوجل
+         إن كل صفحات المنتجات هي نسخ مكررة من الرئيسية — فمش بتتفهرس أصلاً.
+         القيم اللي هنا هي الافتراضي للصفحة الرئيسية ولو الـ middleware فشل. -->
+    <link rel="canonical" href="https://remalfragrances.com/">
+    <link rel="alternate" hreflang="ar" href="https://remalfragrances.com/">
+    <link rel="alternate" hreflang="en" href="https://remalfragrances.com/?lang=en">
+    <link rel="alternate" hreflang="x-default" href="https://remalfragrances.com/">
+    <!-- Favicons — ملفات حقيقية من نفس الدومين (مطلوبة لظهور الأيقونة في نتائج جوجل) -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Remal Fragrances — رمال">
+    <meta property="og:title" content="رمال - Remal Fragrances | عطور نيش فاخرة">
+    <meta property="og:description" content="Remal Fragrances | متجر عطور رجالية ونسائية يقدم عطورًا أصلية ومستوحاة بخامات مختارة ومجموعات اكتشاف تناسب جميع الأذواق.">
+    <meta property="og:url" content="https://remalfragrances.com/">
+    <meta property="og:image" content="https://remalfragrances.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="ar_EG">
+    <meta property="og:locale:alternate" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="رمال - Remal Fragrances | عطور نيش فاخرة">
+    <meta name="twitter:description" content="Remal Fragrances | متجر عطور رجالية ونسائية يقدم عطورًا أصلية ومستوحاة بخامات مختارة ومجموعات اكتشاف تناسب جميع الأذواق.">
+    <meta name="twitter:image" content="https://remalfragrances.com/og-image.png">
+    <!-- ===== SOCIAL-META:END ===== -->
+
+    <!-- Structured data: Organization + WebSite (sitelinks search box eligible) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://remalfragrances.com/#org",
+          "name": "Remal Fragrances",
+          "alternateName": "رمال",
+          "url": "https://remalfragrances.com/",
+          "logo": "https://remalfragrances.com/favicon-512.png",
+          "description": "متجر عطور رجالية ونسائية يقدم عطورًا أصلية ومستوحاة بخامات مختارة ومجموعات اكتشاف تناسب جميع الأذواق.",
+          "email": "hello@remal.eg",
+          "telephone": "+201114545419",
+          "address": { "@type": "PostalAddress", "addressCountry": "EG" },
+          "sameAs": [
+            "https://www.instagram.com/remalfragrances",
+            "https://www.facebook.com/share/18HAGRXrtt/"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://remalfragrances.com/#website",
+          "url": "https://remalfragrances.com/",
+          "name": "Remal Fragrances — رمال",
+          "publisher": { "@id": "https://remalfragrances.com/#org" },
+          "inLanguage": ["ar", "en"]
+        },
+        {
+          "@type": "OnlineStore",
+          "@id": "https://remalfragrances.com/#store",
+          "name": "Remal Fragrances",
+          "url": "https://remalfragrances.com/",
+          "parentOrganization": { "@id": "https://remalfragrances.com/#org" },
+          "currenciesAccepted": "EGP",
+          "paymentAccepted": "Cash on Delivery, InstaPay, Mobile Wallet",
+          "areaServed": { "@type": "Country", "name": "Egypt" }
+        }
+      ]
+    }
+    </script>
+
+    <!-- ===== Google Analytics 4 + Canonical ديناميكي =====
+         الـ Measurement ID يُقرأ من appsettings عبر /api/config/analytics —
+         غيّره من ملف الإعدادات على السيرفر بدون أي تعديل في الكود. -->
+    <script>
+    (function () {
+        var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+        // ============================================================
+        //  طبقة تتبع موحّدة — RemalTrack
+        //  حدث واحد بيتبعت لكل المنصات المفعّلة (GA4 + بيكسل Meta)، وبنفس
+        //  المعرّف (eventID) اللي السيرفر بيستخدمه في Conversions API عشان
+        //  Meta تدمج النسختين بدل ما تحسب الشراء مرتين.
+        //  إضافة منصة جديدة بعدين = محوّل واحد هنا، من غير ما نلمس أي كود تاني.
+        // ============================================================
+
+        // gtag لازم يتعرّف فورًا: بيكوّم الأحداث في dataLayer لحد ما المكتبة تحمّل
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = window.gtag || function () { dataLayer.push(arguments); };
+
+        // ============================================================
+        //  🔴 تنظيف نماذج بيكسل Meta المهجورة — إصلاح تسريب ذاكرة حرج
+        //
+        //  لما حمولة الحدث تكبر على نداء GET، مكتبة Meta بتبعت الحدث عن طريق
+        //  <form method="post" action="facebook.com/tr/"> جواه <iframe> و~٦٧ حقل
+        //  مخفي، وبتضيفهم في <body> — و**مابتشيلهمش بعد ما الطلب يخلص أبدًا**.
+        //
+        //  في تطبيق صفحة واحدة زي ده كل تنقّل بيبعت PageView، يعني كل تنقّل بيسيب
+        //  ٦٩ عنصر + iframe كامل. جلسة تصفح عادية (٥٠–١٥٠ تنقّل) بتوصل لمئات
+        //  الـ iframes، وعلى Safari في الآيفون ده بيستهلك ذاكرة عملية العرض لحد
+        //  ما النظام يقتلها — وتظهر رسالة "A problem repeatedly occurred".
+        //
+        //  القياس قبل الإصلاح: ٣٠ تنقّل → ١٢٧ نموذج · +٢٠١٢ حقل · +٣٠ iframe
+        //  وذاكرة بتزيد خطيًا من غير ما ترجع تنزل أبدًا.
+        //
+        //  الحل: نراقب إضافة النماذج دي ونسيب أحدث اتنين بس (عشان مانقطعش طلبًا
+        //  لسه بيتبعت) ونشيل اللي قبلهم. النماذج القديمة خلصت شغلها بالفعل، فشيلها
+        //  مابيفقّدش أي حدث — الأحداث بتوصل Meta زي ما هي بالظبط.
+        // ============================================================
+        (function cleanupMetaBeaconForms() {
+            var SELECTOR = 'form[action*="facebook.com/tr"]';
+            var KEEP = 2;   // الأحدث ممكن يكون لسه بيبعت
+
+            function sweep() {
+                try {
+                    var forms = document.querySelectorAll(SELECTOR);
+                    for (var i = 0; i < forms.length - KEEP; i++) {
+                        var f = forms[i];
+                        if (f.parentNode) f.parentNode.removeChild(f);
+                    }
+                } catch (e) {}
+            }
+
+            function start() {
+                if (!document.body || !window.MutationObserver) return;
+                new MutationObserver(function (records) {
+                    for (var i = 0; i < records.length; i++) {
+                        var added = records[i].addedNodes;
+                        for (var j = 0; j < added.length; j++) {
+                            var n = added[j];
+                            if (n.nodeType === 1 && n.tagName === 'FORM'
+                                && (n.getAttribute('action') || '').indexOf('facebook.com/tr') !== -1) {
+                                sweep();
+                                return;
+                            }
+                        }
+                    }
+                }).observe(document.body, { childList: true });
+            }
+
+            if (document.body) start();
+            else document.addEventListener('DOMContentLoaded', start);
+        })();
+
+        function uuid() {
+            try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+            return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        }
+        function cookie(name) {
+            var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return m ? m.pop() : '';
+        }
+        function num(v) { var n = Number(v); return isFinite(n) ? Math.round(n * 100) / 100 : 0; }
+
+        // خريطة الأسماء: اسم موحّد واحد → اسم كل منصة
+        var MAP = {
+            view_item:        { ga: 'view_item',        meta: 'ViewContent' },
+            view_item_list:   { ga: 'view_item_list',   meta: null },
+            add_to_cart:      { ga: 'add_to_cart',      meta: 'AddToCart' },
+            remove_from_cart: { ga: 'remove_from_cart', meta: null },
+            begin_checkout:   { ga: 'begin_checkout',   meta: 'InitiateCheckout' },
+            add_payment_info: { ga: 'add_payment_info', meta: 'AddPaymentInfo' },
+            purchase:         { ga: 'purchase',         meta: 'Purchase' },
+            search:           { ga: 'search',           meta: 'Search' },
+            sign_up:          { ga: 'sign_up',          meta: 'CompleteRegistration' },
+            login:            { ga: 'login',            meta: null }
+        };
+
+        // البيكسل بيتهيّأ متزامنًا في الـ <head>، و stub بتاع Meta بيكوّم أي نداء
+        // قبل ما المكتبة تحمّل ويعيد تشغيله بالترتيب — فمش محتاجين طابور من عندنا.
+        function fireMeta(name, params, eventId) {
+            if (!window.fbq) return;
+            try { window.fbq('track', name, params, { eventID: eventId }); } catch (e) {}
+        }
+
+        window.RemalTrack = {
+            // آخر معرّف حدث شراء — بيتبعت مع الطلب عشان السيرفر يستخدم نفسه
+            lastPurchaseEventId: null,
+
+            /** يحوّل منتج/عنصر سلة للشكل الموحّد للأصناف */
+            item: function (o) {
+                o = o || {};
+                return {
+                    id: String(o.id || o.productId || o.bundleId || o.collectionId || ''),
+                    name: String(o.name || ''),
+                    category: String(o.category || ''),
+                    variant: String(o.variant || o.volume || ''),
+                    price: num(o.price),
+                    quantity: Math.max(1, parseInt(o.quantity || o.qty || 1, 10) || 1)
+                };
+            },
+
+            /** الحدث الموحّد — data = { value, currency, items, ...extras } */
+            event: function (name, data) {
+                try {
+                    var m = MAP[name];
+                    if (!m) return null;
+                    data = data || {};
+                    var items = (data.items || []).map(this.item);
+                    var currency = data.currency || 'EGP';
+                    var value = data.value != null ? num(data.value)
+                        : items.reduce(function (s, i) { return s + i.price * i.quantity; }, 0);
+                    var eventId = data.eventId || uuid();
+
+                    // ---- GA4 ----
+                    var gaParams = { currency: currency, value: value };
+                    if (items.length) {
+                        gaParams.items = items.map(function (i) {
+                            return {
+                                item_id: i.id, item_name: i.name, item_brand: 'Remal',
+                                item_category: i.category, item_variant: i.variant,
+                                price: i.price, quantity: i.quantity
+                            };
+                        });
+                    }
+                    if (data.transactionId) gaParams.transaction_id = data.transactionId;
+                    if (data.shipping != null) gaParams.shipping = num(data.shipping);
+                    if (data.coupon) gaParams.coupon = data.coupon;
+                    if (data.searchTerm) gaParams.search_term = data.searchTerm;
+                    if (data.method) gaParams.method = data.method;
+                    window.gtag('event', m.ga, gaParams);
+
+                    // ---- Meta ----
+                    if (m.meta) {
+                        // القيمة بتتبعت بس لما يكون ليها معنى — حدث زي Search بقيمة 0
+                        // بيبوّظ متوسط قيمة التحويل في تقارير الحملات
+                        var fbParams = (value > 0 || items.length)
+                            ? { currency: currency, value: value }
+                            : {};
+                        if (items.length) {
+                            fbParams.content_type = 'product';
+                            fbParams.content_ids = items.map(function (i) { return i.id; });
+                            fbParams.contents = items.map(function (i) {
+                                return { id: i.id, quantity: i.quantity, item_price: i.price };
+                            });
+                            fbParams.num_items = items.reduce(function (s, i) { return s + i.quantity; }, 0);
+                            // Meta بتوصي بالاسم والفئة في أحداث المحتوى — بيحسّنوا
+                            // مطابقة الكتالوج وجودة تقارير الحملات
+                            if (items[0].name) fbParams.content_name = items[0].name;
+                            if (items[0].category) fbParams.content_category = items[0].category;
+                        }
+                        if (data.searchTerm) fbParams.search_string = data.searchTerm;
+                        if (data.transactionId) fbParams.order_id = data.transactionId;
+                        fireMeta(m.meta, fbParams, eventId);
+                    }
+
+                    if (name === 'purchase') this.lastPurchaseEventId = eventId;
+                    return eventId;
+                } catch (e) { return null; }
+            },
+
+            /**
+             * Advanced Matching — بيانات العميل بتترسل مع تهيئة البيكسل، و Meta
+             * بتشفّرها في المتصفح قبل ما تخرج. دي أكبر رافعة منفردة لـ
+             * Event Match Quality، وبالتالي لتكلفة التحويل في الحملات.
+             * بنحفظها عشان الزيارة الجاية تتهيّأ بيها من أول لحظة.
+             */
+            identify: function (u) {
+                try {
+                    if (!u) return;
+                    var data = {};
+                    var clean = function (v) { return String(v || '').trim().toLowerCase(); };
+                    if (u.email) data.em = clean(u.email);
+                    if (u.phone) {
+                        var d = String(u.phone).replace(/\D/g, '');
+                        if (d.indexOf('00') === 0) d = d.slice(2);
+                        if (d.charAt(0) === '0' && d.length === 11) d = '20' + d.slice(1);
+                        if (d) data.ph = d;
+                    }
+                    if (u.firstName) data.fn = clean(u.firstName);
+                    if (u.lastName) data.ln = clean(u.lastName);
+                    if (u.city) data.ct = clean(u.city).replace(/\s/g, '');
+                    if (u.externalId) data.external_id = String(u.externalId);
+                    data.country = 'eg';
+                    if (Object.keys(data).length <= 1) return;   // country لوحدها مالهاش قيمة
+                    try { localStorage.setItem('remal_am', JSON.stringify(data)); } catch (e) {}
+                    if (window.fbq && window.REMAL_META_PIXEL_ID) {
+                        window.fbq('init', window.REMAL_META_PIXEL_ID, data);
+                    }
+                } catch (e) {}
+            },
+
+            /**
+             * إشارات المطابقة اللي بتتبعت مع الطلب للسيرفر (Conversions API).
+             * بتولّد **معرّفًا جديدًا في كل مرة** — لو رجّعنا معرّف عملية شراء سابقة،
+             * Meta هتعتبر الطلب التاني في نفس الجلسة تكرارًا وتحذفه.
+             */
+            signals: function () {
+                return {
+                    eventId: uuid(),
+                    fbp: cookie('_fbp'),
+                    fbc: cookie('_fbc'),
+                    sourceUrl: location.href
+                };
+            }
+        };
+
+        // ============================================================
+        //  تحميل المنصات — المعرّفات بتيجي من /api/config/analytics
+        //  (قيم عامة؛ التوكن السرّي بيفضل في السيرفر ومابيخرجش أبدًا)
+        // ============================================================
+        if (!isLocal) {
+            fetch('/api/config/analytics')
+                .then(function (r) { return r.json(); })
+                .then(function (cfg) {
+                    cfg = cfg || {};
+
+                    // ---- GA4 ----
+                    if (cfg.measurementId) {
+                        var s = document.createElement('script');
+                        s.async = true;
+                        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(cfg.measurementId);
+                        document.head.appendChild(s);
+                        gtag('js', new Date());
+                        gtag('config', cfg.measurementId);
+                    }
+
+                })
+                .catch(function () {});
+        }
+
+        // SPA: كل تنقل داخلي = مشاهدة صفحة جديدة.
+        // المستمع بره الـ fetch عن قصد — لو اتسجّل جواه كان بيفوّت أول تنقل
+        // (الراوتر بيشتغل قبل ما رد الإعدادات يوصل).
+        var _lastPageViewPath = location.pathname + location.search;
+        document.addEventListener('remal:navigated', function () {
+            // navigate() بيتنادى كتير على نفس الصفحة (زرار في نفس الصفحة، إعادة رسم،
+            // رجوع لنفس المسار). إرسال PageView في الحالات دي بيضاعف عدد المشاهدات
+            // في التقارير غلط، وبيولّد نموذج بيكسل جديد في كل مرة من غير أي فايدة.
+            var path = location.pathname + location.search;
+            if (path === _lastPageViewPath) return;
+            _lastPageViewPath = path;
+            try {
+                window.gtag('event', 'page_view', {
+                    page_path: path,
+                    page_title: document.title
+                });
+            } catch (e) {}
+            if (window.fbq) { try { fbq('track', 'PageView'); } catch (e) {} }
+        });
+
+        // ---- Canonical + og:url يتحدثان مع كل تنقل ----
+        document.addEventListener('remal:navigated', function () {
+            try {
+                var link = document.querySelector('link[rel="canonical"]');
+                if (!link) return;
+                var href = new URL(link.getAttribute('href')).origin + location.pathname;
+                link.setAttribute('href', href);
+                var og = document.querySelector('meta[property="og:url"]');
+                if (og) og.setAttribute('content', href);
+            } catch (e) {}
+        });
+    })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/remal.css?v=2252714814">
+<!-- Google Sign-In: Web OAuth Client ID. Origins must be configured in Google Cloud Console. -->
+<meta name="google-client-id" content="996600563091-g8atsust60oasvk4jt50ku2jtn64307l.apps.googleusercontent.com">
+<!-- Google Identity Services (Google Sign-In). Loaded async so it never blocks page paint.
+     اللغة تُمرَّر صراحةً عبر ?hl= لأن استنتاج جوجل التلقائي بيعتمد على لغة المتصفح
+     مش على lang بتاع الصفحة — فكان الزر بيطلع عربي في الواجهة الإنجليزية. -->
+<script>
+(function () {
+    var lang = 'ar';
+    try { lang = (document.documentElement.getAttribute('lang') === 'en') ? 'en' : 'ar'; } catch (e) {}
+    window.__gsiLoadedLang = lang;
+    var s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client?hl=' + lang;
+    s.async = true; s.defer = true;
+    document.head.appendChild(s);
+})();
+</script>
+</head>
+
+
+<body>
+     <!-- ================= التوست نوتيفيكيشن ================= -->
+    <div id="toast">
+        <span id="toast-msg" class="lang-text" data-ar="تمت الإضافة إلى حقيبتك" data-en="ADDED TO BAG">تمت الإضافة إلى حقيبتك</span>
+    </div>
+
+    <!-- ================= Cart Drawer ================= -->
+    <div class="cart-overlay" id="cartOverlay" onclick="toggleCartDrawer()"></div>
+    <div class="cart-drawer" id="cartDrawer">
+        <div class="cart-drawer-header">
+            <div class="cart-drawer-title">
+                <span class="lang-text" data-ar="حقيبتك" data-en="Your Bag">حقيبتك</span>
+                <span class="cart-drawer-count en-num" id="drawerCount">1</span>
+            </div>
+            <button class="cart-drawer-close" onclick="toggleCartDrawer()">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="cart-drawer-body" id="cartDrawerBody"></div>
+        <div class="cart-drawer-footer" id="cartDrawerFooter"></div>
+    </div>
+
+    <!-- ================= Wishlist Drawer ================= -->
+    <div class="wishlist-overlay" id="wishlistOverlay" onclick="toggleWishlistDrawer()"></div>
+    <div class="wishlist-drawer" id="wishlistDrawer">
+        <div class="wishlist-drawer-header">
+            <div class="wishlist-drawer-title">
+                <span class="lang-text" data-ar="المفضلة" data-en="Wishlist">المفضلة</span>
+                <span class="wishlist-drawer-count en-num" id="wishlistDrawerCount">0</span>
+            </div>
+            <button class="wishlist-drawer-close" onclick="toggleWishlistDrawer()">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="wishlist-drawer-body" id="wishlistDrawerBody"></div>
+    </div>
+
+
+    <!-- ================= شريط الإعلانات العلوي (Luxury Matte Black) ================= -->
+    <!-- شريط إعلانات عمودي: رسالة واحدة تظهر وتتبدّل بحركة انزلاق للأعلى، تُدار من لوحة التحكم -->
+    <div class="sand-marquee-wrapper" id="announceBar">
+        <a class="announce-line" id="announceLine" rel="noopener"><span id="announceText" class="lang-text"
+            data-ar="شحن مجاني على جميع الطلبات فوق ٢٠٠٠ جنيه ✦ اكتشف مجموعات الاستكشاف الجديدة"
+            data-en="FREE SHIPPING ON ALL ORDERS OVER 2000 EGP ✦ DISCOVER OUR DISCOVERY SETS">شحن مجاني على جميع الطلبات فوق ٢٠٠٠ جنيه ✦ اكتشف مجموعات الاستكشاف الجديدة</span></a>
+    </div>
+
+    <!-- ================= النافبار الأساسي (Header) ================= -->
+    <header class="standard-navbar" id="mainNavbar">
+        <div class="logo-text" onclick="navigate('home')" style="display: flex; align-items: center; justify-content: center; height: 100%; cursor: pointer;">
+            <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1948.64 828.483" style="height: 48px; width: auto; fill: var(--black); stroke: none; transition: 0.4s;">
+                <path d="M896.375,1428.448q-37.806,17.167-94.474,30.058a509.976,509.976,0,0,1-113.365,12.883q-51.532,0-89.749-14.6t-63.124-41.656q-24.923-27.053-37.363-64.84-12.456-37.782-12.451-84.168a413.039,413.039,0,0,1,10.306-90.606,524.223,524.223,0,0,1,27.482-87.172l6.013,4.293a633.252,633.252,0,0,0-18.036,60.979,268.088,268.088,0,0,0-7.729,63.552q0,44.67,17.607,73.431a126.968,126.968,0,0,0,46.377,45.091q28.761,16.322,64.84,22.329a442.948,442.948,0,0,0,73,6.013,425.158,425.158,0,0,0,53.678-3.436q27.054-3.421,52.818-9.018,25.769-5.579,48.525-12.454a331.4,331.4,0,0,0,39.936-14.6l-9.446-516.166,21.472-6.869v380.467q0,22.342-.432,44.229-.442,21.9-1.288,44.232-.867,22.342-2.576,47.234Zm36.931-547.083-29.2,18.035,8.589-97.906Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1002.011,808.363l21.472-6.869-6.873,391.63q-.865,41.227,25.765,57.974,26.61,16.745,91.9,16.748v108.212q-37.8,0-63.124-9.017a83.561,83.561,0,0,1-40.795-30.49q-15.459-21.454-21.9-56.683-6.446-35.2-6.442-87.6Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1121.377,1363.176v-82.448l12.882-12.882h177.782v108.212H1134.259Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1299.145,1363.176v-82.448l12.882-12.882H1489.8v108.212H1312.027Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1476.913,1363.176v-82.448l12.883-12.882H1667.57v108.212H1489.8Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1654.675,1363.176v-82.448l12.882-12.882h177.778v108.212H1667.557Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1832.446,1363.176v-82.448l12.883-12.882a390.777,390.777,0,0,0,74.286-6.873q35.629-6.863,55.4-16.316,6-23.188,16.315-57.114a388.223,388.223,0,0,1,26.2-64.844q15.878-30.918,38.215-53.247t51.53-22.328q20.608,0,40.368,12.882,19.742,12.879,36.5,36.5,16.745,23.632,30.055,56.255,13.308,32.65,20.187,73l-49.817,97.907-199.247-83.308v97.91q-27.5,16.32-63.13,27.053t-76.863,10.734Zm256.793-281.7a55.9,55.9,0,0,0-24.477,5.153,80.989,80.989,0,0,0-19.324,12.882,88.608,88.608,0,0,0-14.6,16.748q-6.016,9.018-10.306,16.75l204.406,86.741a313.643,313.643,0,0,0-27.053-54.535,249.207,249.207,0,0,0-34.351-43.8q-18.486-18.457-37.366-29.2Q2107.27,1081.48,2089.239,1081.475Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M2426.76,1296.187q0-14.6-5.153-33.494a329.186,329.186,0,0,0-14.171-40.368,407.8,407.8,0,0,0-22.332-44.66q-13.327-23.189-28.773-45.517l16.322-24.908q27.473,40.38,44.657,90.18,17.172,49.82,17.179,92.754a337.591,337.591,0,0,1-9.018,76.007,444.092,444.092,0,0,1-24.476,75.15,450.879,450.879,0,0,1-36.071,67.849q-20.619,31.764-43.8,54.106-61.845-3.441-102.634-15.031t-70-27.053l2.576-6.869a104.86,104.86,0,0,0,24.052,11.594,142.391,142.391,0,0,0,25.765,6.441l-23.189-3.436q19.763-2.576,45.514-14.171a475.94,475.94,0,0,0,53.681-28.77,493.305,493.305,0,0,0,54.538-39.079,393.854,393.854,0,0,0,48.091-46.805,238.142,238.142,0,0,0,34.357-51.53Q2426.756,1321.963,2426.76,1296.187Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1243.649,941.405l549.226-124.741,10.254,25.115L1253.311,955.713Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M2243.066,1625.262l180.981-41.1,3.379,8.276-181.176,37.543Z" transform="translate(-485.849 -801.494)"/>
+            </svg>
+        </div>
+        
+        <nav class="nav-links" id="navLinks">
+            <a onclick="navigate('home')" class="active-link lang-text" data-ar="الرئيسية" data-en="HOME">الرئيسية</a>
+            <a onclick="navigate('perfumes')" class="lang-text" data-ar="عطورنا" data-en="PERFUMES">عطورنا</a>
+            <a onclick="navigate('collections')" class="lang-text" data-ar="مجموعات الاستكشاف" data-en="DISCOVERY SETS">مجموعات الاستكشاف</a>
+            <a onclick="navigate('bundles')" class="lang-text" data-ar="الباقات" data-en="BUNDLES">الباقات</a>
+            <a onclick="navigate('about')" class="lang-text" data-ar="حكايتنا" data-en="ABOUT US">حكايتنا</a>
+            <a onclick="navigate('contact')" class="lang-text" data-ar="تواصل معنا" data-en="CONTACT US">تواصل معنا</a>
+        </nav>
+
+        <div class="header-actions">
+            <!-- أيقونة البحث -->
+            <button class="cart-btn search-icon-btn" onclick="toggleSearch()">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </button>
+            <!-- Wishlist -->
+            <button class="wishlist-btn" id="navWishlistBtn" onclick="toggleWishlistDrawer()">
+                <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                <div class="wishlist-badge en-num" id="wishlistBadge">0</div>
+            </button>
+            <!-- Auth button (login or account) -->
+            <button class="auth-btn" id="navAuthBtn" onclick="handleAuthClick()" aria-label="Account">
+                <svg viewBox="0 0 24 24" id="authBtnIcon"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                <span class="auth-btn-text lang-text" id="authBtnText" data-ar="دخول" data-en="SIGN IN">دخول</span>
+            </button>
+            <button class="lang-toggle" onclick="toggleLanguage()">EN</button>
+            <!-- تم تعديل التوجيه هنا ليفتح الـ Cart Drawer -->
+            <button class="cart-btn" id="navCartBtn" onclick="toggleCartDrawer()">
+                <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line></svg>
+                <div class="cart-badge en-num" id="cartBadge">0</div>
+            </button>
+            <button class="menu-toggle" id="menuToggle" onclick="toggleMenu()">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ================= نافذة البحث الفاخرة (Fullscreen Modal) ================= -->
+    <!-- ================= Premium Search Modal (Bug-aware rebuild — Sephora/Apple-level UX) ================= -->
+    <div class="search-fullscreen-modal premium" id="searchModal" role="dialog" aria-modal="true" aria-label="Search Remal">
+        <button class="close-search-btn" onclick="toggleSearch()" aria-label="Close search">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="search-shell">
+            <div class="search-input-row">
+                <svg class="search-input-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="searchInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       data-placeholder-ar="ابحث عن عطر، نوتة، أو فئة..." data-placeholder-en="Search a fragrance, note, or category..."
+                       placeholder="ابحث عن عطر، نوتة، أو فئة..." aria-controls="searchResultsPanel" aria-autocomplete="list">
+                <button class="search-clear-btn" id="searchClearBtn" aria-label="Clear" type="button" style="display:none;">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="search-results-panel" id="searchResultsPanel" role="listbox"></div>
+        </div>
+    </div>
+
+    <!-- ================= Mobile Nav Drawer ================= -->
+    <div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="toggleMenu()"></div>
+    <nav class="mobile-nav-drawer" id="mobileNav">
+        <div class="mnav-header">
+            <svg class="mnav-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1948.64 828.483">
+                <path d="M896.375,1428.448q-37.806,17.167-94.474,30.058a509.976,509.976,0,0,1-113.365,12.883q-51.532,0-89.749-14.6t-63.124-41.656q-24.923-27.053-37.363-64.84-12.456-37.782-12.451-84.168a413.039,413.039,0,0,1,10.306-90.606,524.223,524.223,0,0,1,27.482-87.172l6.013,4.293a633.252,633.252,0,0,0-18.036,60.979,268.088,268.088,0,0,0-7.729,63.552q0,44.67,17.607,73.431a126.968,126.968,0,0,0,46.377,45.091q28.761,16.322,64.84,22.329a442.948,442.948,0,0,0,73,6.013,425.158,425.158,0,0,0,53.678-3.436q27.054-3.421,52.818-9.018,25.769-5.579,48.525-12.454a331.4,331.4,0,0,0,39.936-14.6l-9.446-516.166,21.472-6.869v380.467q0,22.342-.432,44.229-.442,21.9-1.288,44.232-.867,22.342-2.576,47.234Zm36.931-547.083-29.2,18.035,8.589-97.906Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1002.011,808.363l21.472-6.869-6.873,391.63q-.865,41.227,25.765,57.974,26.61,16.745,91.9,16.748v108.212q-37.8,0-63.124-9.017a83.561,83.561,0,0,1-40.795-30.49q-15.459-21.454-21.9-56.683-6.446-35.2-6.442-87.6Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1121.377,1363.176v-82.448l12.882-12.882h177.782v108.212H1134.259Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1299.145,1363.176v-82.448l12.882-12.882H1489.8v108.212H1312.027Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1476.913,1363.176v-82.448l12.883-12.882H1667.57v108.212H1489.8Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1654.675,1363.176v-82.448l12.882-12.882h177.778v108.212H1667.557Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1832.446,1363.176v-82.448l12.883-12.882a390.777,390.777,0,0,0,74.286-6.873q35.629-6.863,55.4-16.316,6-23.188,16.315-57.114a388.223,388.223,0,0,1,26.2-64.844q15.878-30.918,38.215-53.247t51.53-22.328q20.608,0,40.368,12.882,19.742,12.879,36.5,36.5,16.745,23.632,30.055,56.255,13.308,32.65,20.187,73l-49.817,97.907-199.247-83.308v97.91q-27.5,16.32-63.13,27.053t-76.863,10.734Zm256.793-281.7a55.9,55.9,0,0,0-24.477,5.153,80.989,80.989,0,0,0-19.324,12.882,88.608,88.608,0,0,0-14.6,16.748q-6.016,9.018-10.306,16.75l204.406,86.741a313.643,313.643,0,0,0-27.053-54.535,249.207,249.207,0,0,0-34.351-43.8q-18.486-18.457-37.366-29.2Q2107.27,1081.48,2089.239,1081.475Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M2426.76,1296.187q0-14.6-5.153-33.494a329.186,329.186,0,0,0-14.171-40.368,407.8,407.8,0,0,0-22.332-44.66q-13.327-23.189-28.773-45.517l16.322-24.908q27.473,40.38,44.657,90.18,17.172,49.82,17.179,92.754a337.591,337.591,0,0,1-9.018,76.007,444.092,444.092,0,0,1-24.476,75.15,450.879,450.879,0,0,1-36.071,67.849q-20.619,31.764-43.8,54.106-61.845-3.441-102.634-15.031t-70-27.053l2.576-6.869a104.86,104.86,0,0,0,24.052,11.594,142.391,142.391,0,0,0,25.765,6.441l-23.189-3.436q19.763-2.576,45.514-14.171a475.94,475.94,0,0,0,53.681-28.77,493.305,493.305,0,0,0,54.538-39.079,393.854,393.854,0,0,0,48.091-46.805,238.142,238.142,0,0,0,34.357-51.53Q2426.756,1321.963,2426.76,1296.187Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M1243.649,941.405l549.226-124.741,10.254,25.115L1253.311,955.713Z" transform="translate(-485.849 -801.494)"/>
+                <path d="M2243.066,1625.262l180.981-41.1,3.379,8.276-181.176,37.543Z" transform="translate(-485.849 -801.494)"/>
+            </svg>
+            <button class="mnav-close" onclick="toggleMenu()">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <!-- Search + Language toggle (mobile only — moved here from navbar) -->
+        <div class="mnav-top-actions">
+            <div class="mnav-search-bar" onclick="toggleMenu(); setTimeout(toggleSearch, 250);">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <span class="lang-text" data-ar="ابحث عن عطرك..." data-en="Search for your fragrance...">ابحث عن عطرك...</span>
+            </div>
+            <div class="mnav-lang-row">
+                <span class="label lang-text" data-ar="اللغة" data-en="LANGUAGE">اللغة</span>
+                <div class="mnav-lang-toggle" id="mnavLangToggle">
+                    <button id="mnavLangAr" class="active" onclick="setLanguageFromMobile('ar')">AR</button>
+                    <button id="mnavLangEn" onclick="setLanguageFromMobile('en')">EN</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- القائمة مقسّمة لمجموعتين: التسوّق أولاً (اللي العميل جاي عشانه)،
+             وبعدها المساعدة والمعلومات. الترتيب من العام للخاص. -->
+        <div class="mnav-links">
+            <div class="mnav-group-label lang-text" data-ar="تسوّق" data-en="SHOP">تسوّق</div>
+            <button class="mnav-link" onclick="navigate('home')">
+                <span class="lang-text" data-ar="الرئيسية" data-en="HOME">الرئيسية</span>
+            </button>
+            <button class="mnav-link" onclick="navigate('all-products')">
+                <span class="lang-text" data-ar="كل المنتجات" data-en="ALL PRODUCTS">كل المنتجات</span>
+            </button>
+            <button class="mnav-link" onclick="navigate('perfumes')">
+                <span class="lang-text" data-ar="عطورنا" data-en="PERFUMES">عطورنا</span>
+            </button>
+            <button class="mnav-link" onclick="navigate('bundles')">
+                <span class="lang-text" data-ar="الباقات" data-en="BUNDLES">الباقات</span>
+            </button>
+            <button class="mnav-link" onclick="navigate('collections')">
+                <span class="lang-text" data-ar="مجموعات الاستكشاف" data-en="DISCOVERY SETS">مجموعات الاستكشاف</span>
+            </button>
+
+            <div class="mnav-divider"></div>
+
+            <div class="mnav-group-label lang-text" data-ar="مساعدة ومعلومات" data-en="HELP & INFO">مساعدة ومعلومات</div>
+            <button class="mnav-link" onclick="navigate('tracking')">
+                <span class="lang-text" data-ar="تتبع طلبك" data-en="ORDER TRACKING">تتبع طلبك</span>
+            </button>
+            <button class="mnav-link" onclick="navigate('about')">
+                <span class="lang-text" data-ar="حكايتنا" data-en="ABOUT US">حكايتنا</span>
+            </button>
+            <button class="mnav-link" onclick="navigate('contact')">
+                <span class="lang-text" data-ar="تواصل معنا" data-en="CONTACT US">تواصل معنا</span>
+            </button>
+            <button class="mnav-link" onclick="navigate('shipping')">
+                <span class="lang-text" data-ar="الشحن" data-en="SHIPPING">الشحن</span>
+            </button>
+            <button class="mnav-link" onclick="navigate('return')">
+                <span class="lang-text" data-ar="الاسترجاع" data-en="REFUND POLICY">الاسترجاع</span>
+            </button>
+        </div>
+
+        <div class="mnav-footer">
+            <button class="mnav-auth-btn mnav-login">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                <span class="lang-text" data-ar="تسجيل الدخول" data-en="SIGN IN">تسجيل الدخول</span>
+            </button>
+            <button class="mnav-auth-btn mnav-register">
+                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                <span class="lang-text" data-ar="إنشاء حساب" data-en="REGISTER">إنشاء حساب</span>
+            </button>
+        </div>
+    </nav>
+
+    <section id="home" class="page-section active" style="padding-bottom: 0;">
+        
+        <!-- ===== Hero Carousel (Vanilla JS) — سحب باللمس + شُرَط تقدّم أسفل اليمين ===== -->
+        <div class="naked-hero" id="heroCarousel">
+            <div class="hero-slides" id="heroSlides" aria-hidden="true"></div>
+            <!-- مؤشر الشُرَط: عددها = عدد الصور؛ النشطة بيضاء صريحة وتمتلئ كشريط تقدم ثم تقلب تلقائياً -->
+            <div class="hero-dashes" id="heroDashes" role="tablist" aria-label="Hero slides"></div>
+            <div class="hero-content hero-text-up">
+                <button class="btn-luxury" onclick="navigate('perfumes')">
+                    <span class="lang-text" data-ar="اكتشف المجموعة" data-en="DISCOVER COLLECTION">اكتشف المجموعة</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="white-bg-wrapper">
+
+            <div class="container">
+                <div class="section-heading">
+                    <h2 class="lang-text" data-ar="أيقونات الدار" data-en="CULT FAVORITES">أيقونات الدار</h2>
+                    <p class="lang-text" data-ar="الأكثر مبيعًا وطلبًا لدى عملائنا" data-en="Our most loved and requested fragrances.">الأكثر مبيعًا وطلبًا لدى عملائنا</p>
+                </div>
+                <div class="grid" id="homeCultGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+            </div>
+
+            <!-- ===== الأقسام الترويجية (Spotlight) — شرائح صور تُدار بالكامل من لوحة
+                 التحكم (الإعدادات ← الأقسام الترويجية). التنقّل بالسحب فقط، والمحتوى في
+                 الركن السفلي (يمين عربي / يسار إنجليزي). مخفي افتراضيًا لحد ما الأدمن يضيف. ===== -->
+            <section class="promo-spotlight" id="promoSpotlight" hidden>
+                <div class="promo-track" id="promoTrack"></div>
+            </section>
+
+            <!-- ===== شريط التمرير المتحرك (يسار → يمين) — النص يُدار من لوحة التحكم ===== -->
+            <div class="home-marquee" id="homeMarquee" hidden>
+                <div class="home-marquee-track" id="homeMarqueeTrack"></div>
+            </div>
+
+            <div class="container" style="margin-top: 40px;">
+                <div class="section-heading">
+                    <h2 class="lang-text" data-ar="وصل حديثاً" data-en="NEW ARRIVALS">وصل حديثاً</h2>
+                    <p class="lang-text" data-ar="أحدث إصدارات الدار — صيغت للتوّ في معملنا" data-en="Our latest fragrance creations straight from the lab.">أحدث إصدارات الدار — صيغت للتوّ في معملنا</p>
+                </div>
+                <div class="grid" id="homeNewGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+            </div>
+            
+            <!-- ================= Bundles Section (Home) ================= -->
+            <div class="container" style="margin-top: 40px;">
+                <div class="section-heading">
+                    <h2 class="lang-text" data-ar="الباقات الموسمية" data-en="SEASONAL BUNDLES">الباقات الموسمية</h2>
+                    <p class="lang-text" data-ar="باقات منتقاة بعناية بأسعار خاصة — توليفات تكمل بعضها" data-en="Curated bundles at special prices — compositions that complete one another.">باقات منتقاة بعناية بأسعار خاصة — توليفات تكمل بعضها</p>
+                </div>
+                <div class="grid" id="homeBundlesGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+                <div style="text-align:center; margin-top: 30px;">
+                    <button class="btn-luxury" onclick="navigate('bundles')">
+                        <span class="lang-text" data-ar="شوف كل الباقات" data-en="VIEW ALL BUNDLES">شوف كل الباقات</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="container" style="margin-top: 40px;">
+                <div class="section-heading">
+                    <h2 class="lang-text" data-ar="عروض حصرية" data-en="SPECIAL OFFERS">عروض حصرية</h2>
+                    <p class="lang-text" data-ar="اقتنِ فخامة رمال بأسعار خاصة — لفترة محدودة" data-en="Own Remal's luxury at special prices — for a limited time.">اقتنِ فخامة رمال بأسعار خاصة — لفترة محدودة</p>
+                </div>
+                <div class="grid" id="homeOffersGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+
+    <!-- ================= كل المنتجات ================= -->
+    <!-- صفحة واحدة تجمع كل ما يبيعه المتجر: العطور ثم الباقات ثم مجموعات الاستكشاف،
+         كل مجموعة بعنوانها. الشبكات تُملأ من نفس دوال الرسم المستخدمة في باقي الصفحات. -->
+    <section id="all-products" class="page-section">
+        <div class="container">
+            <div class="section-heading" style="margin-top: 80px;">
+                <h2 class="lang-text" data-ar="كل المنتجات" data-en="ALL PRODUCTS">كل المنتجات</h2>
+                <p class="lang-text" data-ar="كل ما تقدّمه الدار — العطور والباقات ومجموعات الاستكشاف" data-en="Everything we offer — perfumes, bundles and discovery sets">كل ما تقدّمه الدار — العطور والباقات ومجموعات الاستكشاف</p>
+            </div>
+
+            <div class="ap-section-head">
+                <h3 class="lang-text" data-ar="العطور" data-en="Perfumes">العطور</h3>
+                <button type="button" class="ap-more" onclick="navigate('perfumes')">
+                    <span class="lang-text" data-ar="شوف الكل" data-en="View all">شوف الكل</span>
+                </button>
+            </div>
+            <div class="grid" id="apPerfumesGrid"></div>
+
+            <div class="ap-section-head">
+                <h3 class="lang-text" data-ar="الباقات" data-en="Bundles">الباقات</h3>
+                <button type="button" class="ap-more" onclick="navigate('bundles')">
+                    <span class="lang-text" data-ar="شوف الكل" data-en="View all">شوف الكل</span>
+                </button>
+            </div>
+            <div class="grid" id="apBundlesGrid"></div>
+
+            <div class="ap-section-head">
+                <h3 class="lang-text" data-ar="مجموعات الاستكشاف" data-en="Discovery Sets">مجموعات الاستكشاف</h3>
+                <button type="button" class="ap-more" onclick="navigate('collections')">
+                    <span class="lang-text" data-ar="شوف الكل" data-en="View all">شوف الكل</span>
+                </button>
+            </div>
+            <div class="grid" id="apCollectionsGrid"></div>
+        </div>
+    </section>
+
+    <section id="perfumes" class="page-section">
+        <div class="container">
+            <div class="section-heading" style="margin-top: 80px;">
+                <h2 class="lang-text" data-ar="اختر ما يشبهك" data-en="DISCOVER YOUR SCENT">اختر ما يشبهك</h2>
+                <p class="lang-text" data-ar="لكل عطر حكاية — ابدأ حكايتك من هنا." data-en="Every fragrance has a story. Start yours here.">لكل عطر حكاية — ابدأ حكايتك من هنا.</p>
+            </div>
+
+            <!-- Filter bar — original pill style -->
+            <div class="filters-bar" id="catalogFilterPanel">
+                <button type="button" class="filter-btn active" data-f="all"><span class="lang-text" data-ar="الكل" data-en="All">الكل</span></button>
+                <button type="button" class="filter-btn" data-f="sort:bestseller"><span class="lang-text" data-ar="الأكثر مبيعاً" data-en="Best Sellers">الأكثر مبيعاً</span></button>
+                <button type="button" class="filter-btn" data-f="sort:newest"><span class="lang-text" data-ar="الأحدث" data-en="Newest">الأحدث</span></button>
+                <button type="button" class="filter-btn" data-f="cat:men"><span class="lang-text" data-ar="رجالي" data-en="Men">رجالي</span></button>
+                <button type="button" class="filter-btn" data-f="cat:women"><span class="lang-text" data-ar="نسائي" data-en="Women">نسائي</span></button>
+                <button type="button" class="filter-btn" data-f="cat:unisex"><span class="lang-text" data-ar="للجنسين" data-en="Unisex">للجنسين</span></button>
+                <button type="button" class="filter-btn" data-f="sort:price-asc"><span class="lang-text" data-ar="السعر: من الأقل" data-en="Price: Low to High">السعر: من الأقل</span></button>
+                <button type="button" class="filter-btn" data-f="sort:price-desc"><span class="lang-text" data-ar="السعر: من الأعلى" data-en="Price: High to Low">السعر: من الأعلى</span></button>
+                <button type="button" class="filter-btn" data-f="stock"><span class="lang-text" data-ar="المتاح فقط" data-en="In Stock Only">المتاح فقط</span></button>
+            </div>
+
+            <div class="grid" id="catalogGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+        </div>
+    </section>
+
+    <section id="collections" class="page-section">
+        <div class="container">
+            <div class="section-heading" style="margin-top: 80px;">
+                <h2 class="lang-text" data-ar="مجموعات الاستكشاف" data-en="DISCOVERY SETS">مجموعات الاستكشاف</h2>
+                <p class="lang-text" data-ar="هدايا تليق بمن تحب — أو بك أنت." data-en="Gifts worthy of your loved ones — or yourself.">هدايا تليق بمن تحب — أو بك أنت.</p>
+            </div>
+            <div class="grid" id="collectionsPageGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+        </div>
+    </section>
+
+
+
+    <!-- ================= الشريط الثابت (Sticky Bottom Cart) - Redesigned ================= -->
+    <div id="stickyCart" class="sticky-bottom-cart">
+        <div class="sticky-product-thumb">
+            <img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" id="stickyProductImg">
+        </div>
+        <div class="sticky-product-info">
+            <div class="sticky-product-name lang-text" data-ar="" data-en="" id="stickyProductName"></div>
+            <div class="sticky-product-price">
+                <span class="sticky-currency lang-text" data-ar="ج.م" data-en="EGP">ج.م</span><span class="en-num" id="stickyPriceDisplay"></span>
+            </div>
+        </div>
+        <div class="sticky-right">
+            <div class="sticky-qty">
+                <button class="sticky-qty-btn" onclick="changeStickyQty(-1)">−</button>
+                <span class="sticky-qty-val en-num" id="stickyQtyVal">1</span>
+                <button class="sticky-qty-btn" onclick="changeStickyQty(1)">+</button>
+            </div>
+            <button class="sticky-add-btn" id="stickyAddBtn" onclick="stickyAddToCart()">
+                <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+                <span class="lang-text" data-ar="أضف" data-en="ADD">أضف</span>
+            </button>
+        </div>
+    </div>
+
+     <!-- ================= صفحة تفاصيل المنتج ================= -->
+    <section id="product-detail" class="page-section">
+        <div class="luxury-product-layout">
+        
+        <div class="product-image-sticky">
+            <div class="product-slider-wrapper">
+                <!-- هياكل الشرائح والمصغّرات لازم تفضل موجودة: applyGallery/openProductDetail
+                     بيملأوا src بتاعها من الـ API. سايبينها بصورة شفافة (بكسل data URI)
+                     عشان ما تومضش صورة منتج قديم ولا تظهر أيقونة صورة مكسورة. -->
+                <div class="product-slider" id="productSlider" onscroll="updateSliderDots()">
+                    <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                    <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                    <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                </div>
+                <div class="slider-thumbs" id="sliderThumbs">
+                    <div class="slider-thumb active" onclick="goToSlide(0)">
+                        <img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+                    </div>
+                    <div class="slider-thumb" onclick="goToSlide(1)">
+                        <img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+                    </div>
+                    <div class="slider-thumb" onclick="goToSlide(2)">
+                        <img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="product-info-scroll">
+            <!-- العنوان/المسار/الاقتباس تُملأ من الـ API عند فتح المنتج — تُترك فارغة عمدًا
+                 حتى لا يومض اسم منتج قديم قبل وصول البيانات. -->
+            <div class="breadcrumb lang-text" data-ar="الرئيسية / عطورنا" data-en="Home / Perfumes">الرئيسية / عطورنا</div>
+
+            <h1 class="lang-text" data-ar="" data-en=""></h1>
+            <div class="insp-text lang-text" data-ar="" data-en=""></div>
+
+            <!-- Stock Indicator — الحالة تُحسب من مخزون المنتج الفعلي؛ فارغة قبل وصول البيانات -->
+            <div class="pd-stock-row" hidden>
+                <span class="pd-stock-dot"></span>
+                <span class="pd-stock-text lang-text" data-ar="" data-en=""></span>
+            </div>
+
+            <div class="price-lg">
+                <span class="amount en-num" id="mainPriceDisplay"></span>
+                <span class="currency lang-text" data-ar="ج.م" data-en="EGP" style="font-size: 16px; color: var(--text-muted);">ج.م</span>
+                <!-- السعر قبل الخصم + نسبة الخصم (يظهروا فقط لو الأدمن حدّد سعرًا قبل الخصم) -->
+                <span class="old-price en-num" id="pdOldPrice" hidden></span>
+                <span class="pd-save-pill" id="pdSavePill" hidden></span>
+            </div>
+            
+            <div class="size-variants">
+                <div class="size-variants-title lang-text" data-ar="اختر الحجم" data-en="Select Size">اختر الحجم</div>
+                <div class="size-grid" id="pdSizeGrid"></div>
+            </div>
+
+            <!-- وصف العطر يأتي من الـ API لكل منتج — فارغ عمدًا حتى لا يومض وصف منتج آخر -->
+            <p class="p-desc lang-text" data-ar="" data-en=""></p>
+
+            <div class="action-row" id="mainActionRow">
+                <div class="qty-selector">
+                    <button class="qty-btn" onclick="changeQty(-1)">-</button>
+                    <span class="qty-value en-num" id="qtyValue">1</span>
+                    <button class="qty-btn" onclick="changeQty(1)">+</button>
+                </div>
+                
+                <button class="btn-add-anim" onclick="addWithBottleAnim(this)">
+                    <div class="btn-text-content">
+                        <span class="lang-text" data-ar="أضِف إلى الحقيبة" data-en="ADD TO BAG">أضِف إلى الحقيبة</span><span class="en-num dynamic-btn-price" id="btnPriceDisplay"></span>
+                    </div>
+                    <div class="bottle-cart-wrap">
+                        <svg class="bottle-icon-svg" viewBox="0 0 24 24"><rect x="7" y="10" width="10" height="12" rx="2"/><path d="M10 10V6h4v4"/><rect x="9" y="3" width="6" height="3" rx="1"/></svg>
+                        <svg class="cart-icon-svg" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line></svg>
+                    </div>
+                    <div class="success-content">
+                        <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:3;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span class="lang-text" data-ar="تمت الإضافة" data-en="ADDED">تمت الإضافة</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- تم تعديل التوجيه هنا لـ checkout -->
+            <button class="btn-buy-now" onclick="navigate('checkout')">
+                <span class="lang-text" data-ar="اشترِ الآن" data-en="BUY NOW">اشترِ الآن</span>
+            </button>
+
+            <!-- ===== التيستر المجاني — يظهر عالمياً على كل صفحات العطور ===== -->
+            <div class="free-tester-box">
+                <div class="free-tester-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <rect x="8.5" y="9" width="7" height="12" rx="1.6"/>
+                        <path d="M10.5 9V6.5h3V9"/>
+                        <rect x="10" y="3.2" width="4" height="2.4" rx="0.7"/>
+                        <path d="M9.8 13.5h4.4" stroke-width="1"/>
+                    </svg>
+                    <span class="free-tester-ml en-num">5ml</span>
+                </div>
+                <div class="free-tester-text">
+                    <strong class="lang-text" data-ar="مع كل طلب: 2 تيستر 5ml هدية" data-en="With every order: 2 free 5ml testers">مع كل طلب: 2 تيستر 5ml هدية</strong>
+                    <span class="lang-text" data-ar="من عطرين مختلفين عن اللي طلبته — عشان تجرّب روائح جديدة من الدار" data-en="Two scents different from the one you ordered — so you can explore more of the house">من عطرين مختلفين عن اللي طلبته — عشان تجرّب روائح جديدة من الدار</span>
+                </div>
+            </div>
+            
+            <div class="accordion-wrapper">
+                <div class="accordion-item active">
+                    <button class="accordion-btn" onclick="toggleAccordion(this)">
+                        <span class="lang-text" data-ar="التركيبة السرية (النوتات)" data-en="The Secret Formula (Notes)">التركيبة السرية (النوتات)</span>
+                        <span class="icon">+</span>
+                    </button>
+                    <div class="accordion-content" style="max-height: 600px;">
+                        <!-- النوتات تُبنى من نوتات كل عطر (renderProductDetail) — فارغة عمدًا -->
+                        <div class="accordion-content-inner lang-text" data-ar="" data-en=""></div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <button class="accordion-btn" onclick="toggleAccordion(this)">
+                        <span class="lang-text" data-ar="الأداء والثبات" data-en="Performance & Longevity">الأداء والثبات</span>
+                        <span class="icon">+</span>
+                    </button>
+                    <div class="accordion-content">
+                        <!-- نص الأداء والثبات — يُملأ ديناميكياً من بيانات كل عطر (مع نص افتراضي عند غيابه) -->
+                        <div class="accordion-content-inner lang-text" id="pdPerformanceText"
+                             data-ar="صممناه بتركيز Extrait de Parfum عشان يضمن لك ثبات بيعدي الـ ١٢ ساعة على الهدوم، وفوحان يسيب بصمتك في المكان اللي بتمشي فيه."
+                             data-en="Formulated as an Extrait de Parfum to ensure longevity exceeding 12 hours on fabrics, with a sillage that leaves your mark wherever you go.">
+                            صممناه بتركيز Extrait de Parfum عشان يضمن لك ثبات بيعدي الـ ١٢ ساعة على الهدوم، وفوحان يسيب بصمتك في المكان اللي بتمشي فيه.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="reviews-section" id="pdReviewsSection">
+                <h3 class="reviews-title lang-text" data-ar="تقييمات العملاء" data-en="Customer Reviews">تقييمات العملاء</h3>
+                <div class="add-review-wrap" data-detail="product"></div>
+                <div id="pdReviewsList"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ================= قد يعجبك أيضًا ================= -->
+    <div class="container" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 60px;">
+        <h3 class="lang-text" data-ar="قد يعجبك أيضًا" data-en="YOU MAY ALSO LIKE"
+            style="text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: 700;">
+            قد يعجبك أيضًا
+        </h3>
+
+        <div class="grid" id="relatedGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+    </div>
+</section>
+
+    <!-- ================= صفحة الدفع وسلة المشتريات (Multi-Step Checkout) ================= -->
+    <section id="checkout" class="page-section">
+        <div class="checkout-layout">
+            
+            <!-- الجزء الأيمن: الخطوات التفاعلية -->
+            <div class="checkout-steps-wrapper">
+                
+                <!-- الخطوة الأولى: السلة -->
+                <div class="checkout-step active" id="step1">
+                    <div class="step-header">
+                        <h2 class="step-title lang-text" data-ar="طلبك" data-en="Your Order">طلبك</h2>
+                    </div>
+                    <div class="step-content">
+                        <div class="cart-items-list" id="checkoutCartList"></div>
+                    </div>
+                </div>
+
+                <!-- الخطوة الثانية: بيانات الشحن -->
+                <div class="checkout-step" id="step2">
+                    <div class="step-header">
+                        <h2 class="step-title lang-text" data-ar="بيانات التوصيل" data-en="Shipping Details">بيانات التوصيل</h2>
+                    </div>
+                    <div class="step-content">
+                        <form class="checkout-form" id="shippingForm">
+                            <input type="text" class="luxury-input" id="shipFirstName" required data-placeholder-ar="الاسم الأول" data-placeholder-en="First Name" placeholder="الاسم الأول">
+                            <input type="text" class="luxury-input" id="shipLastName" required data-placeholder-ar="اسم العائلة" data-placeholder-en="Last Name" placeholder="اسم العائلة">
+                            <input type="tel" class="luxury-input en-num" id="shipPhone" required data-placeholder-ar="رقم الموبايل" data-placeholder-en="Phone Number" placeholder="رقم الموبايل">
+                            <input type="email" class="luxury-input en-num" id="shipEmail" inputmode="email" autocomplete="email" dir="ltr"
+                                   data-placeholder-ar="البريد الإلكتروني (اختياري)" data-placeholder-en="Email (optional)" placeholder="البريد الإلكتروني (اختياري)">
+                            <div class="ship-email-hint form-col-full lang-text"
+                                 data-ar="نبعتلك عليه تأكيد الطلب والفاتورة — سيبه فاضي لو مش عايز."
+                                 data-en="We'll send your order confirmation and invoice here — leave it empty if you prefer.">نبعتلك عليه تأكيد الطلب والفاتورة — سيبه فاضي لو مش عايز.</div>
+                            <select class="luxury-input" id="shipGovernorate" required onchange="onGovernorateChange()">
+                                <!-- المحافظات تُبنى من إعدادات الشحن في لوحة التحكم (buildGovernorateOptions).
+                                     القيمة تفضل بالعربي دايمًا لأنها هي المفتاح اللي السيرفر بيحسب بيه السعر. -->
+                                <option value="" class="lang-text" data-ar="المحافظة" data-en="Governorate">المحافظة</option>
+                            </select>
+                            <div class="ship-city-wrap" id="shipCityWrap" hidden>
+                                <select class="luxury-input" id="shipCity" onchange="onCityChange()">
+                                    <option value="" class="lang-text" data-ar="المدينة" data-en="City">المدينة</option>
+                                </select>
+                            </div>
+                            <input type="text" class="luxury-input form-col-full" id="shipAddress" required data-placeholder-ar="العنوان بالتفصيل (الشارع، رقم العمارة، الشقة، علامة مميزة)" data-placeholder-en="Detailed Address (street, building, apartment, landmark)" placeholder="العنوان بالتفصيل (الشارع، رقم العمارة، الشقة، علامة مميزة)">
+                        </form>
+                        <label class="save-info-checkbox" id="saveInfoLabel">
+                            <input type="checkbox" id="saveInfoCheck">
+                            <span class="text">
+                                <span class="ttl lang-text" data-ar="احفظ بياناتي للطلبات الجاية" data-en="Save my information for future orders">احفظ بياناتي للطلبات الجاية</span>
+                                <span class="sub lang-text" data-ar="عشان متضطرش تكتبها كل مرة." data-en="So you don't have to type it every time.">عشان متضطرش تكتبها كل مرة.</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- الخطوة الثالثة: طريقة الدفع -->
+                <div class="checkout-step" id="step3">
+                    <div class="step-header">
+                        <h2 class="step-title lang-text" data-ar="طريقة الدفع" data-en="Payment Method">طريقة الدفع</h2>
+                    </div>
+                    <div class="step-content">
+                        <div class="payment-methods">
+                            
+                            <!-- الخيار الأول: الدفع عند الاستلام -->
+                            <div class="payment-card active" onclick="selectPayment(this, 'cod')">
+                                <div class="payment-card-header">
+                                    <div class="pay-radio"></div>
+                                    <div class="pay-icon-wrap pay-icon-cod">
+                                        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:#333;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M6 12h.01M18 12h.01"/></svg>
+                                    </div>
+                                    <div class="pay-details">
+                                        <span class="pay-title lang-text" data-ar="الدفع عند الاستلام" data-en="Cash on Delivery">الدفع عند الاستلام</span>
+                                        <span class="pay-desc lang-text" data-ar="ادفع كاش للمندوب لما تستلم الطلب" data-en="Pay cash to the courier upon delivery">ادفع كاش للمندوب لما تستلم الطلب</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- الخيار الثاني: إنستا باي -->
+                            <div class="payment-card" onclick="selectPayment(this, 'insta')">
+                                <div class="payment-card-header">
+                                    <div class="pay-radio"></div>
+                                    <div class="pay-icon-wrap pay-icon-instapay">
+                                        <img src="assets/instapay.svg" alt="InstaPay" style="width:34px;height:34px;object-fit:contain;display:block;" loading="lazy">
+                                    </div>
+                                    <div class="pay-details">
+                                        <span class="pay-title lang-text" data-ar="إنستا باي (InstaPay)" data-en="InstaPay">إنستا باي (InstaPay)</span>
+                                        <span class="pay-desc pay-discount-badge lang-text" data-ar="خصم إضافي ٥٪ عند الدفع المسبق" data-en="Extra 5% off on prepayment">خصم إضافي ٥٪ عند الدفع المسبق</span>
+                                    </div>
+                                </div>
+                                <div class="payment-extra-fields">
+                                    <div class="transfer-info-box">
+                                        <div class="transfer-info-label lang-text" data-ar="حول المبلغ على" data-en="Transfer to">حول المبلغ على</div>
+                                        <div class="transfer-number-row">
+                                            <span class="transfer-number en-num" id="instaTransferNum" data-pay-insta>01114545419</span>
+                                            <button class="copy-btn" onclick="copyNumber(event, (document.getElementById('instaTransferNum')||{}).textContent)">
+                                                <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                <span class="lang-text" data-ar="نسخ" data-en="Copy">نسخ</span>
+                                            </button>
+                                        </div>
+                                        <div class="transfer-note lang-text" data-ar="ابعت لقطة شاشة التحويل على واتساب بعد الإرسال" data-en="Send payment screenshot via WhatsApp after transfer">ابعت لقطة شاشة التحويل على واتساب بعد الإرسال</div>
+                                    </div>
+                                    <label class="payment-extra-label lang-text" data-ar="رقم موبايلك أو عنوان إنستا باي (IPA) اللي حولت منه:" data-en="Your InstaPay phone number or IPA address:">رقم موبايلك أو عنوان إنستا باي (IPA) اللي حولت منه:</label>
+                                    <input type="text" class="luxury-input en-num" id="instaInput" inputmode="email" autocomplete="off" data-placeholder-ar="مثال: ahmed@instapay أو 01xxxxxxxxx" data-placeholder-en="e.g.: ahmed@instapay or 01xxxxxxxxx" placeholder="مثال: ahmed@instapay أو 01xxxxxxxxx">
+                                    <div class="pay-field-error" id="instaInputError" hidden></div>
+                                    <div class="pay-field-hint lang-text" data-ar="اكتب عنوان إنستا باي بالشكل اسم@بنك، أو رقم موبايلك المصري (١١ رقم يبدأ بـ 010/011/012/015)." data-en="Enter your InstaPay address as name@bank, or your Egyptian mobile (11 digits starting 010/011/012/015).">اكتب عنوان إنستا باي بالشكل اسم@بنك، أو رقم موبايلك المصري (١١ رقم يبدأ بـ 010/011/012/015).</div>
+                                </div>
+                            </div>
+
+                            <!-- الخيار الثالث: المحافظ الإلكترونية (Redesigned) -->
+                            <div class="payment-card wallet-redesign" onclick="selectPayment(this, 'wallet')">
+                                <div class="payment-card-header">
+                                    <div class="pay-radio"></div>
+                                    <div class="pay-icon-wrap pay-icon-wallet">
+                                        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:#555;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                                    </div>
+                                    <div class="pay-details">
+                                        <span class="pay-title lang-text" data-ar="المحافظ الإلكترونية" data-en="E-Wallets">المحافظ الإلكترونية</span>
+                                        <span class="pay-desc lang-text" data-ar="اختار مزودك وحول بسهولة" data-en="Choose your provider and transfer easily">اختار مزودك وحول بسهولة</span>
+                                    </div>
+                                </div>
+                                <div class="payment-extra-fields">
+
+                                    <!-- Step 1: Choose provider -->
+                                    <div class="wallet-step-label">
+                                        <span class="num en-num">1</span>
+                                        <span class="lang-text" data-ar="اختار مزود المحفظة" data-en="Choose your wallet provider">اختار مزود المحفظة</span>
+                                    </div>
+                                    <div class="wallet-providers">
+                                        <div class="wallet-provider-btn active" onclick="selectWalletProvider(event, this, 'vodafone')">
+                                            <div class="provider-logo" style="background:#fff;border:1px solid #eee;border-radius:8px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;padding:6px;">
+                                                <img src="assets/vodafone-cash.svg" alt="Vodafone Cash" style="width:32px;height:32px;object-fit:contain;display:block;" loading="lazy">
+                                            </div>
+                                            <span class="lang-text" data-ar="فودافون كاش" data-en="Vodafone Cash">فودافون كاش</span>
+                                        </div>
+                                        <div class="wallet-provider-btn" onclick="selectWalletProvider(event, this, 'orange')">
+                                            <div class="provider-logo" style="background:#fff;border:1px solid #eee;border-radius:8px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;padding:6px;">
+                                                <img src="assets/orange-cash.svg" alt="Orange Cash" style="width:32px;height:32px;object-fit:contain;display:block;" loading="lazy">
+                                            </div>
+                                            <span class="lang-text" data-ar="أورانج كاش" data-en="Orange Cash">أورانج كاش</span>
+                                        </div>
+                                        <div class="wallet-provider-btn" onclick="selectWalletProvider(event, this, 'etisalat')">
+                                            <div class="provider-logo" style="background:#fff;border:1px solid #eee;border-radius:8px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;padding:6px;">
+                                                <img src="assets/etisalat-cash.svg" alt="Etisalat Cash" style="width:38px;height:38px;object-fit:contain;display:block;" loading="lazy">
+                                            </div>
+                                            <span class="lang-text" data-ar="اتصالات كاش" data-en="Etisalat Cash">اتصالات كاش</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2: Transfer to this number -->
+                                    <div class="wallet-step-label">
+                                        <span class="num en-num">2</span>
+                                        <span class="lang-text" data-ar="حول المبلغ على الرقم ده" data-en="Transfer to this number">حول المبلغ على الرقم ده</span>
+                                    </div>
+                                    <div class="transfer-info-box">
+                                        <span class="transfer-info-label lang-text" data-ar="رقم رمال للتحويل" data-en="Remal transfer number">رقم رمال للتحويل</span>
+                                        <div class="transfer-number-row">
+                                            <span class="transfer-number en-num" id="walletTransferNum" data-pay-wallet>01114545419</span>
+                                            <button class="copy-btn" onclick="copyNumber(event, (document.getElementById('walletTransferNum')||{}).textContent)">
+                                                <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                <span class="lang-text" data-ar="نسخ" data-en="Copy">نسخ</span>
+                                            </button>
+                                        </div>
+                                        <div class="transfer-note">
+                                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                            <span class="lang-text" id="walletProviderNote" data-ar="ابعت لقطة شاشة التحويل على واتساب بعد الإرسال" data-en="Send payment screenshot via WhatsApp after transfer">ابعت لقطة شاشة التحويل على واتساب بعد الإرسال</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 3: Confirm sender -->
+                                    <div class="wallet-step-label">
+                                        <span class="num en-num">3</span>
+                                        <span class="lang-text" data-ar="أكّد رقم محفظتك" data-en="Confirm your wallet number">أكّد رقم محفظتك</span>
+                                    </div>
+                                    <input type="tel" class="luxury-input en-num" id="walletInput" inputmode="numeric" maxlength="11" autocomplete="tel" data-placeholder-ar="رقم الموبايل اللي حولت منه (01XXXXXXXXX)" data-placeholder-en="Mobile number used for transfer (01XXXXXXXXX)" placeholder="رقم الموبايل اللي حولت منه (01XXXXXXXXX)" style="margin-top: 4px;">
+                                    <div class="pay-field-error" id="walletInputError" hidden></div>
+                                    <div class="pay-field-hint lang-text" data-ar="١١ رقم يبدأ بـ 010 أو 011 أو 012 أو 015 — من غير مسافات." data-en="11 digits starting with 010, 011, 012 or 015 — no spaces.">١١ رقم يبدأ بـ 010 أو 011 أو 012 أو 015 — من غير مسافات.</div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- الجزء الأيسر: ملخص الطلب الجانبي -->
+            <div class="checkout-sidebar">
+                <div class="order-summary-box">
+                    <h3 class="summary-title lang-text" data-ar="ملخص الطلب" data-en="Order Summary">ملخص الطلب</h3>
+                    
+                    <div class="promo-code-wrap">
+                        <div class="promo-input-group">
+                            <input type="text" id="promoInput" class="en-num" data-placeholder-ar="كود الخصم" data-placeholder-en="Promo Code" placeholder="كود الخصم">
+                            <button class="btn-apply-promo lang-text" data-ar="تطبيق" data-en="Apply" onclick="applyPromo()">تطبيق</button>
+                        </div>
+                        <span class="promo-msg lang-text" id="promoMsg"></span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span class="lang-text" data-ar="المنتجات" data-en="Subtotal">المنتجات</span>
+                        <span class="en-num"><span id="sumSubtotal">990</span> EGP</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="lang-text" data-ar="الشحن" data-en="Shipping">الشحن</span>
+                        <span class="en-num" id="sumShipping">60 EGP</span>
+                    </div>
+                    
+                    <div class="summary-row discount" id="sumDiscountRow">
+                        <span class="lang-text" data-ar="خصم مُطبق" data-en="Discount Applied">خصم مُطبق</span>
+                        <span class="en-num amount">-<span id="sumDiscountVal">0</span> EGP</span>
+                    </div>
+
+                    <div class="summary-divider"></div>
+
+                    <div class="summary-total">
+                        <span class="text lang-text" data-ar="الإجمالي" data-en="Total">الإجمالي</span>
+                        <span class="amount en-num"><span id="sumFinalTotal">1050</span> <span style="font-size:14px; font-weight:600; color:#555;">EGP</span></span>
+                    </div>
+
+                    <button class="btn-place-order" id="btnPlaceOrder" onclick="placeOrder()">
+                        <span class="lang-text" data-ar="تأكيد الطلب" data-en="PLACE ORDER">تأكيد الطلب</span>
+                    </button>
+                    
+                    <div style="text-align:center; margin-top:20px; font-size:var(--fs-xs); color:var(--text-muted); font-weight:500;">
+                        <svg viewBox="0 0 24 24" style="width:14px; height:14px; stroke:var(--green); display:inline-block; vertical-align:middle; margin-top:-2px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        <span class="lang-text" data-ar="تسوق آمن مشفر ١٠٠٪" data-en="100% Secure Checkout">تسوق آمن مشفر ١٠٠٪</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ================= صفحة نجاح الطلب (Thank You Page) ================= -->
+    <section id="order-success" class="page-section">
+        <div class="success-page-layout">
+            <div class="success-box">
+                <div class="success-icon-wrap">
+                    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <h2 class="success-title lang-text" data-ar="تم استلام طلبك بنجاح!" data-en="Order Placed Successfully!">تم استلام طلبك بنجاح!</h2>
+                <p class="success-desc lang-text" data-ar="شكراً لاختيارك رمال. هنجهز طلبك بأعلى معايير الفخامة وهنتواصل معاك قريب جداً لتأكيد الشحن." data-en="Thank you for choosing Remal. We will prepare your order with the highest standards and contact you shortly.">شكراً لاختيارك رمال. هنجهز طلبك بأعلى معايير الفخامة وهنتواصل معاك قريب جداً لتأكيد الشحن.</p>
+                
+                <div class="order-id-box success">
+                    <div class="order-id-label lang-text" data-ar="رقم الطلب (للتتبع)" data-en="Order Tracking ID">رقم الطلب (للتتبع)</div>
+                    <div class="order-id-value-row">
+                        <div class="order-id-value en-num green" id="displayOrderId">RML-123456</div>
+                        <button class="order-id-copy-btn" id="orderIdCopyBtn" onclick="copyOrderId(this)">
+                            <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            <span class="lang-text" data-ar="نسخ الرقم" data-en="Copy">نسخ الرقم</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="success-actions">
+                    <button class="btn-track-order" onclick="trackFromSuccess()">
+                        <span class="lang-text" data-ar="تتبع حالة الطلب" data-en="TRACK ORDER">تتبع حالة الطلب</span>
+                    </button>
+                    <button class="btn-continue-shop" onclick="navigate('home')">
+                        <span class="lang-text" data-ar="أكمل التسوق" data-en="CONTINUE SHOPPING">أكمل التسوق</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= COLLECTION DETAIL — mirrors product-detail layout ================= -->
+    <section id="collection-detail" class="page-section">
+        <div class="luxury-product-layout">
+
+            <div class="product-image-sticky">
+                <div class="product-slider-wrapper">
+                    <div class="product-slider" id="cdSlider" onscroll="updateCdSliderDots()">
+                        <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                        <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                        <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                    </div>
+                    <div class="slider-thumbs" id="cdSliderThumbs">
+                        <div class="slider-thumb active"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                        <div class="slider-thumb"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                        <div class="slider-thumb"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="product-info-scroll">
+                <div class="breadcrumb lang-text" data-ar="الرئيسية / مجموعات الاستكشاف" data-en="Home / Discovery Sets">الرئيسية / مجموعات الاستكشاف</div>
+
+                <h1 class="lang-text" data-ar="" data-en=""></h1>
+                <div class="insp-text lang-text" data-ar="" data-en=""></div>
+
+                <div class="pd-stock-row" hidden>
+                    <span class="pd-stock-dot"></span>
+                    <span class="pd-stock-text lang-text" data-ar="" data-en=""></span>
+                </div>
+
+                <div class="price-lg">
+                    <span class="amount en-num" id="cdPriceDisplay"></span>
+                    <span class="currency lang-text" data-ar="ج.م" data-en="EGP" style="font-size: 16px; color: var(--text-muted);">ج.م</span>
+                    <!-- السعر قبل الخصم وقيمة التوفير كانا مكتوبين ثابتًا (400 / وفر ١٥٠) فكانا
+                         يظهران لكل المجموعات مهما كانت أسعارها الحقيقية. الآن يُملآن من الـ API. -->
+                    <span id="cdOriginalPrice" class="en-num" style="font-size: var(--fs-md); color: var(--text-muted); text-decoration: line-through; margin-inline-start: 12px; font-family: 'Montserrat',sans-serif;" hidden></span>
+                    <span class="cdx-savings" id="cdSavingsWrap" style="margin-inline-start:10px;" hidden><svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.5;"><polyline points="20 6 9 17 4 12"/></svg><span id="cdSavingsLabel"></span></span>
+                </div>
+
+                <p class="p-desc lang-text" data-ar="" data-en=""></p>
+
+                <!-- Included Fragrances Grid (8) — clickable -->
+                <div style="margin-bottom: 30px;">
+                    <div class="size-variants-title lang-text" id="cdItemsTitle" data-ar="العطور المتضمنة (اضغط لتفاصيل العطر):" data-en="Included Fragrances (click for details):" style="margin-bottom: 14px;">العطور المتضمنة (اضغط لتفاصيل العطر):</div>
+                    <div class="cdx-fragrance-list" id="cdFragrancesGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+                </div>
+
+                <!-- Action row: qty + add to bag (same as product-detail) -->
+                <div class="action-row">
+                    <div class="qty-selector">
+                        <button class="qty-btn" onclick="changeCdQty(-1)">-</button>
+                        <span class="qty-value en-num" id="cdQtyValue">1</span>
+                        <button class="qty-btn" onclick="changeCdQty(1)">+</button>
+                    </div>
+
+                    <button class="btn-add-anim" onclick="addCollectionToCart(this)">
+                        <div class="btn-text-content">
+                            <span class="lang-text" data-ar="أضِف إلى الحقيبة" data-en="ADD TO BAG">أضِف إلى الحقيبة</span> - <span class="en-num" id="cdBtnPriceDisplay">250 EGP</span>
+                        </div>
+                        <div class="bottle-cart-wrap">
+                            <svg class="bottle-icon-svg" viewBox="0 0 24 24"><rect x="7" y="10" width="10" height="12" rx="2"/><path d="M10 10V6h4v4"/><rect x="9" y="3" width="6" height="3" rx="1"/></svg>
+                            <svg class="cart-icon-svg" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line></svg>
+                        </div>
+                        <div class="success-content">
+                            <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:3;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span class="lang-text" data-ar="تمت الإضافة" data-en="ADDED">تمت الإضافة</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Buy Now button (same as product-detail) -->
+                <button class="btn-buy-now" onclick="buyNowCollection()">
+                    <span class="lang-text" data-ar="اشترِ الآن" data-en="BUY NOW">اشترِ الآن</span>
+                </button>
+
+                <!-- Accordions (same as product-detail) -->
+                <div class="accordion-wrapper">
+                    <div class="accordion-item active">
+                        <button class="accordion-btn" onclick="toggleAccordion(this)">
+                            <span class="lang-text" data-ar="ليه مجموعة الاكتشاف؟" data-en="Why the Discovery Set?">ليه مجموعة الاكتشاف؟</span>
+                            <span class="icon">+</span>
+                        </button>
+                        <div class="accordion-content" style="max-height: 600px;">
+                            <div class="accordion-content-inner lang-text" id="cdWhy"
+                                data-ar="عشان تجرب كل عالم رمال قبل ما تستثمر في الزجاجة الكاملة. كل عينة ٥ مل بتكفي لـ ٢٠ رشة كاملة، تكفي تجرب العطر في فصول ومناسبات مختلفة عشان تتأكد إنه يناسبك."
+                                data-en="Try Remal's full world before committing to a full bottle. Each 2ml sample lasts 20+ full sprays — enough to test across seasons and occasions to find your signature.">
+                                عشان تجرب كل عالم رمال قبل ما تستثمر في الزجاجة الكاملة. كل عينة ٥ مل بتكفي لـ ٢٠ رشة كاملة، تكفي تجرب العطر في فصول ومناسبات مختلفة عشان تتأكد إنه يناسبك.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <button class="accordion-btn" onclick="toggleAccordion(this)">
+                            <span class="lang-text" data-ar="إيه اللي جوه البوكس؟" data-en="What's in the Box?">إيه اللي جوه البوكس؟</span>
+                            <span class="icon">+</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="accordion-content-inner lang-text" id="cdBox"
+                                data-ar="٦ عينات × ٥ مل في زجاجات ميني مرشوش. بوكس مغناطيسي فخم بطبعة هوت ستامب ذهبي، كرتة استكشاف فيها وصف كل عطر، وكوبون خصم ٥٠ ج.م على أول زجاجة كاملة."
+                                data-en="8 × 2ml atomizer mini-bottles. Premium magnetic box with gold hot-stamp finish, a discovery card with notes for each scent, and a 50 EGP coupon for your first full-size bottle.">
+                                ٦ عينات × ٥ مل في زجاجات ميني مرشوش. بوكس مغناطيسي فخم بطبعة هوت ستامب ذهبي، كرتة استكشاف فيها وصف كل عطر، وكوبون خصم ٥٠ ج.م على أول زجاجة كاملة.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <button class="accordion-btn" onclick="toggleAccordion(this)">
+                            <span class="lang-text" data-ar="مزايا الباقة" data-en="Set Benefits">مزايا الباقة</span>
+                            <span class="icon">+</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="accordion-content-inner lang-text" id="cdBenefits"
+                                data-ar="• تغليف هدايا فخم مجاني<br>• شحن مجاني على البوكس<br>• استبدال متاح خلال ٧ أيام<br>• كوبون خصم ٥٠ ج.م على أول زجاجة كاملة"
+                                data-en="• Free luxury gift wrap<br>• Free shipping on this set<br>• 7-day exchange guarantee<br>• 50 EGP coupon for your first full-size purchase">
+                                • تغليف هدايا فخم مجاني<br>• شحن مجاني على البوكس<br>• استبدال متاح خلال ٧ أيام<br>• كوبون خصم ٥٠ ج.م على أول زجاجة كاملة
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reviews -->
+                <div class="reviews-section" id="cdReviewsSection">
+                    <h3 class="reviews-title lang-text" data-ar="تقييمات العملاء" data-en="Customer Reviews">تقييمات العملاء</h3>
+
+                    <!-- Add a review (eligible buyers) -->
+                    <div class="add-review-wrap" data-detail="collection"></div>
+
+                    <div id="cdReviewsList"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= قد يعجبك أيضًا (Collection) ================= -->
+        <div class="container" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 60px;">
+            <h3 class="lang-text" data-ar="قد يعجبك أيضًا" data-en="YOU MAY ALSO LIKE"
+                style="text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: 700;">
+                قد يعجبك أيضًا
+            </h3>
+            <div class="grid" id="cdRelatedGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+        </div>
+    </section>
+
+    <!-- ================= BUNDLES LIST PAGE ================= -->
+    <section id="bundles" class="page-section">
+        <div class="container">
+            <div class="section-heading" style="margin-top: 30px;">
+                <h2 class="lang-text" data-ar="الباقات الموسمية" data-en="SEASONAL BUNDLES">الباقات الموسمية</h2>
+                <p class="lang-text" data-ar="باقات منتقاة بعناية بأسعار خاصة — كل باقة تجمع روائح تكمل بعضها." data-en="Carefully curated bundles at special prices. Each bundle brings together scents that complete each other.">باقات منتقاة بعناية بأسعار خاصة — كل باقة تجمع روائح تكمل بعضها.</p>
+            </div>
+
+            <div class="grid" id="bundlesGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+        </div>
+    </section>
+
+    <!-- ================= BUNDLE DETAIL — mirrors product-detail layout ================= -->
+    <section id="bundle-detail" class="page-section">
+        <div class="luxury-product-layout">
+
+            <div class="product-image-sticky">
+                <div class="product-slider-wrapper">
+                    <div class="product-slider" id="bdSlider" onscroll="updateBdSliderDots()">
+                        <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                        <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                        <div class="product-slide"><img decoding="async" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                    </div>
+                    <div class="slider-thumbs" id="bdSliderThumbs">
+                        <div class="slider-thumb active"><img decoding="async" id="bdThumb1" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                        <div class="slider-thumb"><img decoding="async" id="bdThumb2" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                        <div class="slider-thumb"><img decoding="async" id="bdThumb3" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt=""></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="product-info-scroll">
+                <!-- بدون class="lang-text" على الأب: applyLanguage بتستبدل innerHTML بالكامل
+                     فكانت بتمسح span#bdBreadcrumb نفسه وبعدها setId ما يلاقيش العنصر. -->
+                <div class="breadcrumb"><span id="bdBreadcrumb" class="lang-text" data-ar="الرئيسية / الباقات" data-en="Home / Bundles">الرئيسية / الباقات</span></div>
+
+                <h1 id="bdTitle" class="lang-text" data-ar="" data-en=""></h1>
+                <div class="insp-text lang-text" id="bdLead" data-ar="" data-en=""></div>
+
+                <div class="pd-stock-row" hidden>
+                    <span class="pd-stock-dot"></span>
+                    <span class="pd-stock-text lang-text" data-ar="" data-en=""></span>
+                </div>
+
+                <div class="price-lg">
+                    <span class="amount en-num" id="bdPriceDisplay"></span>
+                    <span class="currency lang-text" data-ar="ج.م" data-en="EGP" style="font-size: 16px; color: var(--text-muted);">ج.م</span>
+                    <span style="font-size: var(--fs-md); color: var(--text-muted); text-decoration: line-through; margin-inline-start: 12px; font-family: 'Montserrat',sans-serif;" class="en-num"><span id="bdOriginalPrice"></span></span>
+                    <span class="cdx-savings" style="margin-inline-start:10px;"><svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.5;"><polyline points="20 6 9 17 4 12"/></svg><span id="bdSavingsLabel"></span></span>
+                </div>
+
+                <!-- كارت "إيه اللي جوه الباقة؟" — العنوان والنص قابلين للتحرير من الداشبورد (detailJson) -->
+                <div style="background: #fafafa; border: 1px solid var(--border-color); border-radius: 12px; padding: 22px 24px; margin-bottom: 30px;">
+                    <h3 style="font-size: var(--fs-md); font-weight: 800; color: var(--black); margin-bottom: 6px;" class="lang-text" id="bdBoxTitle" data-ar="إيه اللي جوه الباقة؟" data-en="What's inside the bundle?">إيه اللي جوه الباقة؟</h3>
+                    <p style="font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.7;" class="lang-text" id="bdBoxText" data-ar="زجاجات حجم كامل بتغليف فخم." data-en="Full-size bottles with luxury packaging.">زجاجات حجم كامل بتغليف فخم.</p>
+                </div>
+
+                <!-- Included Fragrances list -->
+                <div style="margin-bottom: 30px;">
+                    <div class="size-variants-title lang-text" data-ar="العطور المتضمنة:" data-en="Included Fragrances:" style="margin-bottom: 14px;">العطور المتضمنة:</div>
+                    <div class="bd-includes-list" id="bdItemsList"></div>
+                </div>
+
+                <!-- Price summary block -->
+                <div class="bd-summary">
+                    <div class="bd-sum-row">
+                        <span class="lang-text" data-ar="السعر الأصلي" data-en="Original price">السعر الأصلي</span>
+                        <span class="en-num"><span id="bdOriginal"></span> <span class="lang-text" data-ar="ج.م" data-en="EGP">ج.م</span></span>
+                    </div>
+                    <div class="bd-sum-row savings">
+                        <span class="lang-text" data-ar="توفير الباقة" data-en="Bundle savings">توفير الباقة</span>
+                        <span class="en-num">-<span id="bdSavings"></span> <span class="lang-text" data-ar="ج.م" data-en="EGP">ج.م</span></span>
+                    </div>
+                    <div class="bd-sum-divider"></div>
+                    <div class="bd-sum-total">
+                        <span class="lbl lang-text" data-ar="السعر النهائي" data-en="Bundle price">السعر النهائي</span>
+                        <span class="val en-num"><span id="bdFinal"></span><span class="cur lang-text" data-ar="ج.م" data-en="EGP">ج.م</span></span>
+                    </div>
+                </div>
+
+                <!-- Action row: qty + add to bag (same as product-detail) -->
+                <div class="action-row">
+                    <div class="qty-selector">
+                        <button class="qty-btn" onclick="changeBdQty(-1)">-</button>
+                        <span class="qty-value en-num" id="bdQtyValue">1</span>
+                        <button class="qty-btn" onclick="changeBdQty(1)">+</button>
+                    </div>
+
+                    <button class="btn-add-anim" onclick="addBundleToCart(this)">
+                        <div class="btn-text-content">
+                            <span class="lang-text" data-ar="أضِف إلى الحقيبة" data-en="ADD TO BAG">أضِف إلى الحقيبة</span><span class="en-num" id="bdBtnPriceDisplay"></span>
+                        </div>
+                        <div class="bottle-cart-wrap">
+                            <svg class="bottle-icon-svg" viewBox="0 0 24 24"><rect x="7" y="10" width="10" height="12" rx="2"/><path d="M10 10V6h4v4"/><rect x="9" y="3" width="6" height="3" rx="1"/></svg>
+                            <svg class="cart-icon-svg" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line></svg>
+                        </div>
+                        <div class="success-content">
+                            <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:3;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span class="lang-text" data-ar="تمت الإضافة" data-en="ADDED">تمت الإضافة</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Buy Now button -->
+                <button class="btn-buy-now" onclick="buyNowBundle()">
+                    <span class="lang-text" data-ar="اشترِ الآن" data-en="BUY NOW">اشترِ الآن</span>
+                </button>
+
+                <!-- Accordions (same style as product-detail) -->
+                <div class="accordion-wrapper">
+                    <div class="accordion-item active">
+                        <button class="accordion-btn" onclick="toggleAccordion(this)">
+                            <span class="lang-text" data-ar="ليه الباقة دي؟" data-en="Why this bundle?">ليه الباقة دي؟</span>
+                            <span class="icon">+</span>
+                        </button>
+                        <div class="accordion-content" style="max-height: 600px;">
+                            <div class="accordion-content-inner lang-text" id="bdWhy"
+                                data-ar="عطورنا اتختاروا في الباقة دي عشان يكملوا بعض. كل عطر فيها بيغطي وقت مختلف من اليوم أو مزاج مختلف، وبتتباع كباقة بسعر أقل من شرا كل واحد لوحده."
+                                data-en="The scents in this bundle were curated to complement each other — each one covers a different time of day or mood. Bundled price beats buying them separately.">
+                                عطورنا اتختاروا في الباقة دي عشان يكملوا بعض. كل عطر فيها بيغطي وقت مختلف من اليوم أو مزاج مختلف، وبتتباع كباقة بسعر أقل من شرا كل واحد لوحده.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <button class="accordion-btn" onclick="toggleAccordion(this)">
+                            <span class="lang-text" data-ar="مزايا الباقة" data-en="Bundle Perks">مزايا الباقة</span>
+                            <span class="icon">+</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="accordion-content-inner lang-text" id="bdBenefits"
+                                data-ar="• زجاجات حجم كامل ٥٥ مل<br>• تغليف هدايا فاخر مجاني<br>• شحن مجاني على الباقة<br>• استبدال متاح خلال ٧ أيام<br>• توفير حقيقي مقارنة بشراء كل عطر منفردًا"
+                                data-en="• Full-size 55 ML bottles<br>• Free luxury gift wrap<br>• Free shipping on bundles<br>• 7-day exchange guarantee<br>• Real savings vs buying separately">
+                                • زجاجات حجم كامل ٥٥ مل<br>• تغليف هدايا فاخر مجاني<br>• شحن مجاني على الباقة<br>• استبدال متاح خلال ٧ أيام<br>• توفير حقيقي مقارنة بشراء كل عطر منفردًا
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reviews -->
+                <div class="reviews-section" id="bdReviewsSection">
+                    <h3 class="reviews-title lang-text" data-ar="تقييمات العملاء" data-en="Customer Reviews">تقييمات العملاء</h3>
+
+                    <div class="add-review-wrap" data-detail="bundle"></div>
+
+                    <div id="bdReviewsList"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= قد يعجبك أيضًا (Bundle) ================= -->
+        <div class="container" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 60px;">
+            <h3 class="lang-text" data-ar="قد يعجبك أيضًا" data-en="YOU MAY ALSO LIKE"
+                style="text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: 700;">
+                قد يعجبك أيضًا
+            </h3>
+            <div class="grid" id="bdRelatedGrid">
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                    <div class="noon-card" style="pointer-events:none;"><div class="image-area" style="background:linear-gradient(90deg,#f3f3f3,#ececec,#f3f3f3);"></div><div class="info-area"><div style="height:14px;background:#eee;border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:60%;background:#f0f0f0;border-radius:4px;"></div></div></div>
+                </div>
+        </div>
+    </section>
+
+    <!-- صفحة /cart القديمة أُزيلت: كانت عرضًا تجريبيًا ثابتًا (منتج وهمي + زر alert)
+         ولا يشير إليها أي كود. السلة الحقيقية = درج السلة + صفحة /checkout.
+         المسار /cart بقى يرجّع للرئيسية تلقائيًا (الراوتر يتحقق من وجود القسم). -->
+
+    <!-- ================= صفحة تتبع الطلب (Order Tracking) ================= -->
+    <section id="tracking" class="page-section tracking-section">
+        <div class="tracking-container">
+            
+            <div class="tracking-header">
+                <h2 class="tracking-title lang-text" data-ar="فين أوردري؟" data-en="WHERE IS MY ORDER?">فين أوردري؟</h2>
+                <p class="tracking-subtitle lang-text" data-ar="اكتب رقم الأوردر اللي اتبعتلك في رسالة لتتبع مسار شحنتك لحظة بلحظة." data-en="Enter your order number received via SMS to track your package step by step.">اكتب رقم الأوردر اللي اتبعتلك في رسالة لتتبع مسار شحنتك لحظة بلحظة.</p>
+            </div>
+
+            <!-- فورم البحث -->
+            <div class="tracking-search-box">
+                <input type="text" id="trackInput" class="tracking-input en-num" data-placeholder-ar="مثال: RML-123456" data-placeholder-en="e.g., RML-123456" placeholder="مثال: RML-123456">
+                <button class="btn-track" id="btnTrackSubmit" onclick="trackOrderNow()">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <span class="lang-text" data-ar="تتبع الطلب" data-en="TRACK ORDER">تتبع الطلب</span>
+                </button>
+            </div>
+
+            <!-- نتيجة البحث (مخفية في البداية) -->
+            <div class="tracking-result-wrapper" id="trackingResultBox">
+                
+                <!-- هيدر النتيجة (تصميم احترافي مع شريط تقدم) -->
+                <div class="tracking-result-header">
+                    <div class="tr-result-top">
+                        <div class="tr-order-id">
+                            <span class="lang-text" data-ar="رقم الطلب" data-en="Order Number">رقم الطلب</span>
+                            <strong class="en-num" id="resOrderId">RML-000000</strong>
+                        </div>
+                        <div class="tr-status-badge" id="resStatusBadge">
+                            <svg viewBox="0 0 24 24" style="stroke:currentColor; fill:none; stroke-width:2;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            <span class="lang-text" data-ar="جاري التحديث..." data-en="Loading...">جاري التحديث...</span>
+                        </div>
+                    </div>
+                    <div class="tr-progress-row">
+                        <div class="tr-progress-bar">
+                            <div class="tr-progress-fill" id="resProgressFill" style="width:0%;"></div>
+                        </div>
+                        <div class="tr-progress-pct en-num" id="resProgressPct">0%</div>
+                    </div>
+                </div>
+
+                <!-- شريط التقدم (Timeline) -->
+                <div class="tracking-timeline">
+                    
+                    <!-- خطوة 1: تم الطلب -->
+                    <div class="timeline-item completed">
+                        <div class="timeline-icon-wrap">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="timeline-content">
+                            <h3 class="tl-title lang-text" data-ar="تم استلام الطلب" data-en="Order Placed">تم استلام الطلب</h3>
+                            <p class="tl-desc lang-text" data-ar="تم استلام طلبك بنجاح وتم تحويله للتحضير." data-en="Your order has been received and sent for preparation.">تم استلام طلبك بنجاح وتم تحويله للتحضير.</p>
+                            <span class="tl-date">May 01, 2026 - 10:30 AM</span>
+                        </div>
+                    </div>
+
+                    <!-- خطوة 2: قيد التجهيز -->
+                    <div class="timeline-item completed">
+                        <div class="timeline-icon-wrap">
+                            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="8" width="18" height="12" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v12M16 8V6a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="timeline-content">
+                            <h3 class="tl-title lang-text" data-ar="جاري تجهيز العطر" data-en="Preparing Order">جاري تجهيز العطر</h3>
+                            <p class="tl-desc lang-text" data-ar="عطرك يُغلَّف الآن بعناية فائقة." data-en="Your fragrance is currently being packaged with utmost care.">عطرك يُغلَّف الآن بعناية فائقة.</p>
+                            <span class="tl-date">May 01, 2026 - 02:15 PM</span>
+                        </div>
+                    </div>
+
+                    <!-- خطوة 3: في الطريق (نشطة) -->
+                    <div class="timeline-item active">
+                        <div class="timeline-icon-wrap">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M5 18H3a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v2M14 18h-4M23 11v5a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="18" r="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="18" r="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 8h4l-3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="timeline-content">
+                            <h3 class="tl-title lang-text" data-ar="في الطريق إليك" data-en="Out for Delivery">في الطريق إليك</h3>
+                            <p class="tl-desc lang-text" data-ar="المندوب استلم الشحنة وفي طريقه لعنوانك." data-en="The courier has picked up your package and is on the way.">المندوب استلم الشحنة وفي طريقه لعنوانك.</p>
+                            <span class="tl-date">May 02, 2026 - 09:00 AM (Today)</span>
+                        </div>
+                    </div>
+
+                    <!-- خطوة 4: تم التوصيل -->
+                    <div class="timeline-item">
+                        <div class="timeline-icon-wrap">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="timeline-content">
+                            <h3 class="tl-title lang-text" data-ar="تم التوصيل بنجاح" data-en="Delivered">تم التوصيل بنجاح</h3>
+                            <p class="tl-desc lang-text" data-ar="نتمنى لك تجربة عطرية لا تُنسى." data-en="We wish you an unforgettable fragrant experience.">نتمنى لك تجربة عطرية لا تُنسى.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- تفاصيل الشحن -->
+                <div class="tracking-details-footer">
+                    <div class="td-block">
+                        <h4 class="lang-text" data-ar="عنوان التوصيل" data-en="Delivery Address">عنوان التوصيل</h4>
+                        <p class="lang-text" data-ar="القاهرة، التجمع الخامس، شارع التسعين." data-en="Cairo, 5th Settlement, 90th Street.">القاهرة، التجمع الخامس، شارع التسعين.</p>
+                    </div>
+                    <div class="td-block">
+                        <h4 class="lang-text" data-ar="طريقة الدفع" data-en="Payment Method">طريقة الدفع</h4>
+                        <p class="lang-text" data-ar="إنستا باي (تم الدفع)" data-en="InstaPay (Paid)">إنستا باي (تم الدفع)</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="page-section text-page">
+        <h2 class="lang-text" data-ar="حكايتنا" data-en="OUR STORY">حكايتنا</h2>
+        <p class="lang-text" data-ar="رمال مش مجرد براند عطور، دي رحلة بدأناها من قلب مصر عشان نقدم مستوى نيش عالمي يليق بيك. إحنا مقتنعين إن العطر هو لغتك اللي بتتكلم من غير ما تفتح بقك، وهو الانطباع الأول والأخير اللي بتسيبه مع الناس." data-en="Remal isn't just a fragrance brand; it's a journey born in the heart of Egypt to deliver a world-class niche experience. We believe fragrance is your unspoken language and your lasting impression.">رمال مش مجرد براند عطور، دي رحلة بدأناها من قلب مصر عشان نقدم مستوى نيش عالمي يليق بيك. إحنا مقتنعين إن العطر هو لغتك اللي بتتكلم من غير ما تفتح بقك، وهو الانطباع الأول والأخير اللي بتسيبه مع الناس.</p>
+        <p class="lang-text" data-ar="لذلك نتعامل مع أمهر مصممي العطور، ونستورد أنقى الزيوت العطرية من أعرق المصانع في فرنسا وإيطاليا، ثم نعتّقها في مصر وفق أعلى معايير الجودة. النتيجة؟ زجاجة عطر تنافس الدور العالمية، بسعر يعبّر عن القيمة الحقيقية بعيدًا عن مبالغات التسويق." data-en="That's why we collaborate with master perfumers and import the purest essential oils from France and Italy, aging them locally to the highest standards. The result? A bottle that rivals global luxury brands, priced to reflect true value.">لذلك نتعامل مع أمهر مصممي العطور، ونستورد أنقى الزيوت العطرية من أعرق المصانع في فرنسا وإيطاليا، ثم نعتّقها في مصر وفق أعلى معايير الجودة. النتيجة؟ زجاجة عطر تنافس الدور العالمية، بسعر يعبّر عن القيمة الحقيقية بعيدًا عن مبالغات التسويق.</p>
+    </section>
+
+    <section id="contact" class="page-section text-page">
+        <h2 class="lang-text" data-ar="تواصل معنا" data-en="CONTACT US" style="text-align: center;">تواصل معنا</h2>
+        <p class="lang-text" data-ar="عندك سؤال؟ محتاج مساعدة تختار عطرك؟ إحنا موجودين عشانك." data-en="Got a question? Need help picking your scent? We are here for you." style="margin-bottom: 40px; text-align: center;">عندك سؤال؟ محتاج مساعدة تختار عطرك؟ إحنا موجودين عشانك.</p>
+        <form id="contactForm" onsubmit="event.preventDefault(); submitContact(this);">
+            <div class="form-group"><input type="text" name="name" class="lang-text" data-placeholder-ar="اسمك إيه؟" data-placeholder-en="Your Name" placeholder="اسمك إيه؟" required></div>
+            <div class="form-group"><input type="tel" name="phone" class="en-num" placeholder="Phone Number" style="text-align: left;" required></div>
+            <div class="form-group"><input type="email" name="email" class="en-num" placeholder="Email (optional)" style="text-align: left;"></div>
+            <div class="form-group"><textarea rows="5" name="message" class="lang-text" data-placeholder-ar="اكتب رسالتك هنا..." data-placeholder-en="Write your message here..." placeholder="اكتب رسالتك هنا..." required></textarea></div>
+            <button type="submit" class="btn-luxury" style="width: 100%; justify-content: center;"><span class="lang-text" data-ar="ابعت الرسالة" data-en="SEND MESSAGE">ابعت الرسالة</span></button>
+            <div class="contact-msg" style="font-size:13px;margin-top:12px;text-align:center;"></div>
+        </form>
+        <div style="margin-top:44px;text-align:center;">
+            <p class="lang-text" data-ar="أو تابعنا وكلّمنا على السوشيال" data-en="Or follow and message us on social"
+               style="font-size:13px;color:var(--text-muted);margin-bottom:16px;letter-spacing:0.5px;">أو تابعنا وكلّمنا على السوشيال</p>
+            <div class="social-icons" style="justify-content:center;">
+                <a href="https://www.instagram.com/remalfragrances" target="_blank" rel="me noopener noreferrer"
+                   aria-label="Remal Fragrances on Instagram" title="Instagram">
+                    <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                </a>
+                <a href="https://www.facebook.com/share/18HAGRXrtt/" target="_blank" rel="me noopener noreferrer"
+                   aria-label="Remal Fragrances on Facebook" title="Facebook">
+                    <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section id="shipping" class="page-section text-page">
+        <h2 class="lang-text" data-ar="هنوصلك إمتى؟ (سياسة الشحن)" data-en="SHIPPING POLICY">هنوصلك إمتى؟ (سياسة الشحن)</h2>
+        <p class="lang-text" data-ar="عارفين إنك متحمس تستلم أوردرك! عشان كده بنجهز الشحنة في خلال ٢٤ ساعة بالظبط من وقت تأكيد الأوردر." data-en="We know you are excited to receive your order! That is why we prepare and dispatch within 24 hours of confirmation.">عارفين إنك متحمس تستلم أوردرك! عشان كده بنجهز الشحنة في خلال ٢٤ ساعة بالظبط من وقت تأكيد الأوردر.</p>
+        <p class="lang-text" data-ar="لو إنت في القاهرة أو الجيزة، الأوردر هيكون عندك خلال ٢٤ لـ ٤٨ ساعة. ولو إنت في أي محافظة تانية في مصر، التوصيل بياخد من يومين لـ ٤ أيام عمل. المندوب هيكلمك قبل ما يوصل عشان يتأكد إنك موجود." data-en="For Cairo/Giza, delivery takes 24-48 hours. For other governorates, it takes 2-4 business days. The courier will contact you prior to delivery.">لو إنت في القاهرة أو الجيزة، الأوردر هيكون عندك خلال ٢٤ لـ ٤٨ ساعة. ولو إنت في أي محافظة تانية في مصر، التوصيل بياخد من يومين لـ ٤ أيام عمل. المندوب هيكلمك قبل ما يوصل عشان يتأكد إنك موجود.</p>
+    </section>
+
+    <section id="return" class="page-section text-page">
+        <h2 class="lang-text" data-ar="سياسة الاستبدال (لأن جودتنا تهمنا)" data-en="EXCHANGE POLICY">سياسة الاستبدال (لأن جودتنا تهمنا)</h2>
+        <p class="lang-text" data-ar="حرصًا على سلامة ونظافة منتجاتنا لجميع عملائنا، <strong>لا نُتيح استرجاع الطلبات</strong> — فالعطور منتجات شخصية حسّاسة، وبمجرد فتح ختم الزجاجة يُغلق باب الإرجاع. وهو معيار مُتّبع لدى دور العطور حول العالم." data-en="To guarantee the hygiene and safety of every customer, <strong>we do not accept returns</strong> — perfumes are personal, sensitive products, and once the bottle seal is opened the bottle can no longer be resold."><strong>لا نُتيح استرجاع الطلبات</strong> — فالعطور منتجات شخصية حسّاسة، وبمجرد فتح ختم الزجاجة يُغلق باب الإرجاع. وهو معيار مُتّبع لدى دور العطور حول العالم.</p>
+        <p class="lang-text" data-ar="بينما <strong>الاستبدال متاح</strong> خلال ٧ أيام من تاريخ الاستلام — بشرط بقاء غلاف السيلوفان مختومًا كما هو، وأن يكون البديل من نفس الفئة السعرية. وفي حال وجود عيب تصنيع أو وصول الزجاجة متضررة من الشحن، نتحمّل التكلفة كاملة دون أي أسئلة." data-en="<strong>Exchanges are allowed</strong> within 7 days of receipt — provided the cellophane seal is unbroken and the new bottle is in the same price tier. If the bottle has a manufacturing defect or arrives damaged, we cover the full cost — no questions asked."><strong>الاستبدال متاح</strong> خلال ٧ أيام من تاريخ الاستلام — بشرط بقاء غلاف السيلوفان مختومًا كما هو، وأن يكون البديل من نفس الفئة السعرية. وفي حال وجود عيب تصنيع أو وصول الزجاجة متضررة من الشحن، نتحمّل التكلفة كاملة دون أي أسئلة.</p>
+        <p class="lang-text" data-ar="لطلب الاستبدال: تواصل معنا عبر واتساب أو البريد الإلكتروني خلال ٧ أيام من تاريخ الاستلام، وسنرتّب مع المندوب استلام الزجاجة المختومة وتسليمك البديل." data-en="To request an exchange: contact us on WhatsApp or email within 7 days of receipt and we'll arrange a courier to pick up the sealed bottle and deliver the replacement.">لطلب الاستبدال: تواصل معنا عبر واتساب أو البريد الإلكتروني خلال ٧ أيام من تاريخ الاستلام، وسنرتّب مع المندوب استلام الزجاجة المختومة وتسليمك البديل.</p>
+    </section>
+
+    <!-- ================= LOGIN PAGE ================= -->
+    <section id="login" class="page-section" style="padding: 0; background: var(--white);">
+        <div class="auth-layout">
+            <div class="auth-form-side">
+                <div class="auth-form-box">
+                    <h2 class="lang-text" data-ar="أهلاً بيك" data-en="Welcome Back">أهلاً بيك</h2>
+                    <p class="auth-subtitle lang-text" data-ar="سجل دخول لحسابك" data-en="Sign in to your account">سجل دخول لحسابك</p>
+                    <form onsubmit="event.preventDefault(); handleLogin();">
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="الموبايل أو الإيميل" data-en="Phone or Email">الموبايل أو الإيميل</label>
+                            <input type="text" id="loginUser" required placeholder="">
+                        </div>
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="الباسورد" data-en="Password">الباسورد</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="loginPass" required placeholder="">
+                                <button type="button" class="pw-eye" onclick="togglePw(this)" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                            </div>
+                        </div>
+                        <label class="auth-checkbox">
+                            <input type="checkbox" id="loginRemember">
+                            <span class="lang-text" data-ar="افتكرني" data-en="Remember me">افتكرني</span>
+                        </label>
+                        <button type="submit" class="btn-sand-fill">
+                            <span class="lang-text" data-ar="تسجيل الدخول" data-en="SIGN IN">تسجيل الدخول</span>
+                        </button>
+                    </form>
+                    <div class="auth-links">
+                        <a onclick="navigate('forgot-password')" class="lang-text" data-ar="نسيت الباسورد؟" data-en="Forgot password?">نسيت الباسورد؟</a>
+                        <a onclick="navigate('register')" class="lang-text" data-ar="إنشاء حساب جديد" data-en="Create account">إنشاء حساب جديد</a>
+                    </div>
+                    <div class="auth-divider"><span class="lang-text" data-ar="أو" data-en="OR">أو</span></div>
+                    <!-- Google Identity Services button container (rendered by GSI lib) -->
+                    <div id="gsiLoginBtn" class="gsi-btn-wrap"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= FORGOT PASSWORD PAGE ================= -->
+    <section id="forgot-password" class="page-section" style="padding: 0; background: var(--white);">
+        <div class="auth-layout">
+            <div class="auth-form-side" style="flex: 1;">
+                <div class="auth-form-box">
+                    <h2 class="lang-text" data-ar="نسيت الباسورد؟" data-en="Forgot Password?">نسيت الباسورد؟</h2>
+                    <p class="auth-subtitle lang-text" data-ar="اكتب إيميل حسابك وهنبعتلك رابط تعيين كلمة سر جديدة" data-en="Enter your account email and we'll send you a reset link">اكتب إيميل حسابك وهنبعتلك رابط تعيين كلمة سر جديدة</p>
+                    <form onsubmit="event.preventDefault(); handleForgotPassword();">
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="الإيميل" data-en="Email">الإيميل</label>
+                            <input type="email" id="fpEmail" required dir="ltr">
+                        </div>
+                        <button type="submit" class="btn-sand-fill" id="fpSubmitBtn">
+                            <span class="lang-text" data-ar="إرسال رابط الاستعادة" data-en="SEND RESET LINK">إرسال رابط الاستعادة</span>
+                        </button>
+                    </form>
+                    <p id="fpMsg" style="display:none; margin-top:16px; padding:12px 14px; background:#f2f8f2; border:1px solid #cfe6cf; border-radius:8px; color:#2e6b2e; font-size:13px; line-height:1.8;"></p>
+                    <div class="auth-links" style="margin-top:18px;">
+                        <a onclick="navigate('login')" class="lang-text" data-ar="الرجوع لتسجيل الدخول" data-en="Back to sign in">الرجوع لتسجيل الدخول</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= RESET PASSWORD PAGE (يُفتح من رابط الإيميل) ================= -->
+    <section id="reset-password" class="page-section" style="padding: 0; background: var(--white);">
+        <div class="auth-layout">
+            <div class="auth-form-side" style="flex: 1;">
+                <!-- حالة: رابط غير صالح أو مستخدم بالفعل -->
+                <div class="auth-form-box" id="resetInvalidBox" style="display:none; text-align:center;">
+                    <div style="width:64px;height:64px;border-radius:50%;background:#fdecec;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+                        <svg viewBox="0 0 24 24" style="width:30px;height:30px;stroke:#d64545;fill:none;stroke-width:2;stroke-linecap:round;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    </div>
+                    <h2 class="lang-text" data-ar="الرابط غير صالح" data-en="Link Not Valid">الرابط غير صالح</h2>
+                    <p class="auth-subtitle lang-text" data-ar="الرابط ده غير صالح أو تم استخدامه بالفعل. اطلب رابط استعادة جديد." data-en="This link is invalid or has already been used. Please request a new reset link.">الرابط ده غير صالح أو تم استخدامه بالفعل. اطلب رابط استعادة جديد.</p>
+                    <button type="button" class="btn-sand-fill" style="margin-top:18px;" onclick="navigate('forgot-password')">
+                        <span class="lang-text" data-ar="طلب رابط جديد" data-en="REQUEST NEW LINK">طلب رابط جديد</span>
+                    </button>
+                </div>
+                <div class="auth-form-box" id="resetFormBox">
+                    <h2 class="lang-text" data-ar="تعيين كلمة سر جديدة" data-en="Set a New Password">تعيين كلمة سر جديدة</h2>
+                    <p class="auth-subtitle lang-text" data-ar="اكتب كلمة السر الجديدة لحسابك" data-en="Choose a new password for your account">اكتب كلمة السر الجديدة لحسابك</p>
+                    <form onsubmit="event.preventDefault(); handleResetPassword();">
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="كلمة السر الجديدة" data-en="New password">كلمة السر الجديدة</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="rpPass1" required minlength="6">
+                                <button type="button" class="pw-eye" onclick="togglePw(this)" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                            </div>
+                        </div>
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="تأكيد كلمة السر" data-en="Confirm password">تأكيد كلمة السر</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="rpPass2" required minlength="6">
+                                <button type="button" class="pw-eye" onclick="togglePw(this)" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-sand-fill">
+                            <span class="lang-text" data-ar="حفظ كلمة السر" data-en="SAVE PASSWORD">حفظ كلمة السر</span>
+                        </button>
+                    </form>
+                    <div class="auth-links" style="margin-top:18px;">
+                        <a onclick="navigate('login')" class="lang-text" data-ar="الرجوع لتسجيل الدخول" data-en="Back to sign in">الرجوع لتسجيل الدخول</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= REGISTER PAGE ================= -->
+    <section id="register" class="page-section" style="padding: 0; background: var(--white);">
+        <div class="auth-layout">
+            <div class="auth-form-side">
+                <div class="auth-form-box">
+                    <h2 class="lang-text" data-ar="إنشاء حساب" data-en="Create Account">إنشاء حساب</h2>
+                    <p class="auth-subtitle lang-text" data-ar="انضم لعيلة رمال" data-en="Join the Remal family">انضم لعيلة رمال</p>
+                    <form onsubmit="event.preventDefault(); handleRegister();">
+                        <div class="auth-form-row">
+                            <div class="auth-form-group">
+                                <label class="lang-text" data-ar="الاسم الأول" data-en="First Name">الاسم الأول</label>
+                                <input type="text" id="regFirstName" required>
+                            </div>
+                            <div class="auth-form-group">
+                                <label class="lang-text" data-ar="الاسم الأخير" data-en="Last Name">الاسم الأخير</label>
+                                <input type="text" id="regLastName" required>
+                            </div>
+                        </div>
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="رقم الموبايل" data-en="Phone Number">رقم الموبايل</label>
+                            <input type="tel" id="regPhone" required>
+                        </div>
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="الإيميل" data-en="Email">الإيميل</label>
+                            <input type="email" id="regEmail" required>
+                        </div>
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="الباسورد" data-en="Password">الباسورد</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="regPassword" required>
+                                <button type="button" class="pw-eye" onclick="togglePw(this)" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                            </div>
+                        </div>
+                        <div class="auth-form-group">
+                            <label class="lang-text" data-ar="تأكيد الباسورد" data-en="Confirm Password">تأكيد الباسورد</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="regConfirmPass" required>
+                                <button type="button" class="pw-eye" onclick="togglePw(this)" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                            </div>
+                        </div>
+                        <div class="auth-form-row">
+                            <div class="auth-form-group">
+                                <label class="lang-text" data-ar="النوع" data-en="Gender">النوع</label>
+                                <select id="regGender" required>
+                                    <option value="male" class="lang-text" data-ar="راجل" data-en="Man" selected>راجل</option>
+                                    <option value="female" class="lang-text" data-ar="ست" data-en="Woman">ست</option>
+                                </select>
+                            </div>
+                            <div class="auth-form-group">
+                                <label class="lang-text" data-ar="تاريخ الميلاد (اختياري)" data-en="Birthday (Optional)">تاريخ الميلاد (اختياري)</label>
+                                <input type="date" id="regBirthday">
+                            </div>
+                        </div>
+                        <label class="auth-checkbox">
+                            <input type="checkbox" id="regTerms" required>
+                            <span class="lang-text" data-ar="أوافق على الشروط والأحكام" data-en="I agree to the terms and conditions">أوافق على الشروط والأحكام</span>
+                        </label>
+                        <button type="submit" class="btn-sand-fill">
+                            <span class="lang-text" data-ar="إنشاء الحساب" data-en="CREATE ACCOUNT">إنشاء الحساب</span>
+                        </button>
+                    </form>
+                    <div class="auth-divider"><span class="lang-text" data-ar="أو" data-en="OR">أو</span></div>
+                    <div id="gsiRegisterBtn" class="gsi-btn-wrap"></div>
+                    <div class="auth-links" style="justify-content: center; margin-top: 20px;">
+                        <span class="lang-text" data-ar="عندك حساب؟" data-en="Already have an account?" style="color: var(--text-muted);">عندك حساب؟</span>
+                        <a onclick="navigate('login')" class="lang-text" data-ar="سجل دخول" data-en="Sign in">سجل دخول</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= ACCOUNT DASHBOARD ================= -->
+    <section id="account" class="page-section">
+        <div class="container">
+            <div class="section-heading" style="margin-top: 0;">
+                <h2 class="lang-text" data-ar="حسابي" data-en="MY ACCOUNT">حسابي</h2>
+            </div>
+            <div class="account-layout">
+                <!-- Sidebar (desktop only) -->
+                <div class="account-sidebar" id="accountSidebar">
+                    <button class="account-sidebar-tab active" data-tab="profile" onclick="switchAccountTab('profile')">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                        <span class="lang-text" data-ar="الملف الشخصي" data-en="Profile">الملف الشخصي</span>
+                    </button>
+                    <button class="account-sidebar-tab" data-tab="orders" onclick="switchAccountTab('orders')">
+                        <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        <span class="lang-text" data-ar="طلباتي" data-en="My Orders">طلباتي</span>
+                    </button>
+                    <button class="account-sidebar-tab" data-tab="wishlistTab" onclick="switchAccountTab('wishlistTab')">
+                        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                        <span class="lang-text" data-ar="المفضلة" data-en="Wishlist">المفضلة</span>
+                    </button>
+                    <button class="account-sidebar-tab" data-tab="points" onclick="switchAccountTab('points')">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        <span class="lang-text" data-ar="نقاطي" data-en="My Points">نقاطي</span>
+                    </button>
+                    <button class="account-sidebar-tab" data-tab="coupons" onclick="switchAccountTab('coupons')">
+                        <svg viewBox="0 0 24 24"><path d="M20.38 3.46L16 2 11.62 3.46a2 2 0 0 1-1.24 0L6 2l-1 .31v16.2l.62.2a2 2 0 0 0 1.24 0l4.38-1.46a2 2 0 0 1 1.24 0l4.38 1.46a2 2 0 0 0 1.24 0l1-.31V2.31l-.62-.2a2 2 0 0 0-1.24 0zM16 13H8"/><path d="M16 17H8"/></svg>
+                        <span class="lang-text" data-ar="كوبوناتي" data-en="My Coupons">كوبوناتي</span>
+                    </button>
+                    <div class="account-sidebar-divider"></div>
+                    <button class="account-sidebar-tab logout" onclick="handleLogout()">
+                        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <span class="lang-text" data-ar="تسجيل الخروج" data-en="Logout">تسجيل الخروج</span>
+                    </button>
+                </div>
+
+                <!-- Mobile tabs -->
+                <div class="account-mobile-tabs">
+                    <button class="account-mobile-tab active" data-tab="profile" onclick="switchAccountTab('profile')">
+                        <span class="lang-text" data-ar="الملف" data-en="Profile">الملف</span>
+                    </button>
+                    <button class="account-mobile-tab" data-tab="orders" onclick="switchAccountTab('orders')">
+                        <span class="lang-text" data-ar="طلباتي" data-en="Orders">طلباتي</span>
+                    </button>
+                    <button class="account-mobile-tab" data-tab="wishlistTab" onclick="switchAccountTab('wishlistTab')">
+                        <span class="lang-text" data-ar="المفضلة" data-en="Wishlist">المفضلة</span>
+                    </button>
+                    <button class="account-mobile-tab" data-tab="points" onclick="switchAccountTab('points')">
+                        <span class="lang-text" data-ar="نقاطي" data-en="Points">نقاطي</span>
+                    </button>
+                    <button class="account-mobile-tab" data-tab="coupons" onclick="switchAccountTab('coupons')">
+                        <span class="lang-text" data-ar="كوبونات" data-en="Coupons">كوبونات</span>
+                    </button>
+                </div>
+
+                <!-- Content area -->
+                <div class="account-content">
+                    <!-- TAB 1: Profile -->
+                    <div class="account-tab-panel active" id="tab-profile">
+                        <h3 class="lang-text" data-ar="الملف الشخصي" data-en="My Profile">الملف الشخصي</h3>
+                        <form class="profile-form" onsubmit="event.preventDefault(); saveProfile();">
+                            <div class="auth-form-row">
+                                <div class="form-group">
+                                    <label class="lang-text" data-ar="الاسم الأول" data-en="First Name">الاسم الأول</label>
+                                    <input type="text" id="profFirstName" value="محمد">
+                                </div>
+                                <div class="form-group">
+                                    <label class="lang-text" data-ar="الاسم الأخير" data-en="Last Name">الاسم الأخير</label>
+                                    <input type="text" id="profLastName" value="أحمد">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="lang-text" data-ar="رقم الموبايل" data-en="Phone Number">رقم الموبايل</label>
+                                <input type="tel" id="profPhone" value="0111 234 5678">
+                            </div>
+                            <div class="form-group">
+                                <label class="lang-text" data-ar="الإيميل" data-en="Email">الإيميل</label>
+                                <input type="email" id="profEmail" value="mohamed@example.com">
+                            </div>
+                            <button type="submit" class="profile-save-btn">
+                                <span class="lang-text" data-ar="حفظ التغييرات" data-en="Save Changes">حفظ التغييرات</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- TAB 2: Orders -->
+                    <div class="account-tab-panel" id="tab-orders">
+                        <h3 class="lang-text" data-ar="طلباتي" data-en="My Orders">طلباتي</h3>
+                        <div id="ordersList"></div>
+                    </div>
+
+                    <!-- TAB 3: Wishlist -->
+                    <div class="account-tab-panel" id="tab-wishlistTab">
+                        <h3 class="lang-text" data-ar="المفضلة" data-en="My Wishlist">المفضلة</h3>
+                        <div id="accountWishlistBody"></div>
+                    </div>
+
+                    <!-- TAB 4: Points -->
+                    <div class="account-tab-panel" id="tab-points">
+                        <h3 class="lang-text" data-ar="نقاطي" data-en="My Points">نقاطي</h3>
+                        <div class="points-card">
+                            <div class="points-label lang-text" data-ar="رصيدك الحالي" data-en="Current balance">رصيدك الحالي</div>
+                            <div class="points-balance en-num">—</div>
+                            <div class="points-balance-unit lang-text" data-ar="نقطة" data-en="points">نقطة</div>
+                            <div class="points-progress-wrap">
+                                <div class="points-progress-bar"><div class="points-progress-fill" style="width:0%"></div></div>
+                                <div class="points-tier-labels">
+                                    <span class="points-current-tier"></span>
+                                </div>
+                            </div>
+                            <div class="points-next-note lang-text" data-ar="كل ١٠٠ نقطة تعادل ١٠ ج.م تُخصم من طلبك القادم." data-en="Every 100 points is worth 10 EGP off your next order.">كل ١٠٠ نقطة تعادل ١٠ ج.م تُخصم من طلبك القادم.</div>
+                        </div>
+                        <div class="points-history-wrap">
+                        <table class="points-history-table">
+                            <thead>
+                                <tr><th class="lang-text" data-ar="التاريخ" data-en="Date">التاريخ</th><th class="lang-text" data-ar="الحركة" data-en="Action">الحركة</th><th class="lang-text" data-ar="النقاط" data-en="Points">النقاط</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td class="en-num">May 03, 2026</td><td class="lang-text" data-ar="شراء: طلب RML-284751" data-en="Purchase: Order RML-284751">شراء: طلب RML-284751</td><td class="points-earned">+293</td></tr>
+                                <tr><td class="en-num">Apr 28, 2026</td><td class="lang-text" data-ar="شراء: طلب RML-284123" data-en="Purchase: Order RML-284123">شراء: طلب RML-284123</td><td class="points-earned">+99</td></tr>
+                                <tr><td class="en-num">Apr 15, 2026</td><td class="lang-text" data-ar="شراء: طلب RML-283456" data-en="Purchase: Order RML-283456">شراء: طلب RML-283456</td><td class="points-earned">+190</td></tr>
+                                <tr><td class="en-num">Apr 01, 2026</td><td class="lang-text" data-ar="ترحيب: إنشاء حساب" data-en="Welcome: Account created">ترحيب: إنشاء حساب</td><td class="points-earned">+100</td></tr>
+                                <tr><td class="en-num">Mar 20, 2026</td><td class="lang-text" data-ar="استبدال: كوبون خصم" data-en="Redeemed: Discount coupon">استبدال: كوبون خصم</td><td class="points-spent">-200</td></tr>
+                                <tr><td class="en-num">Mar 10, 2026</td><td class="lang-text" data-ar="مكافأة تقييم" data-en="Review reward">مكافأة تقييم</td><td class="points-earned">+50</td></tr>
+                                <tr><td class="en-num">Mar 01, 2026</td><td class="lang-text" data-ar="شراء: طلب RML-281002" data-en="Purchase: Order RML-281002">شراء: طلب RML-281002</td><td class="points-earned">+708</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                        <div class="points-how">
+                            <h4 class="lang-text" data-ar="طرق كسب النقاط" data-en="Ways to earn points">طرق كسب النقاط</h4>
+                            <div class="points-how-item"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span class="lang-text" data-ar="نقطة واحدة عن كل ١٠ ج.م من قيمة طلبك" data-en="One point for every 10 EGP of your order value">نقطة واحدة عن كل ١٠ ج.م من قيمة طلبك</span></div>
+                            <div class="points-how-item"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span class="lang-text" data-ar="١٠٠ نقطة تُضاف عند إنشاء حسابك" data-en="100 points credited when you create your account">١٠٠ نقطة تُضاف عند إنشاء حسابك</span></div>
+                            <div class="points-how-item"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span class="lang-text" data-ar="٥٠ نقطة عن كل تقييم تشاركنا به بعد الاستلام" data-en="50 points for each review you share after delivery">٥٠ نقطة عن كل تقييم تشاركنا به بعد الاستلام</span></div>
+                            <div class="points-how-item"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span class="lang-text" data-ar="٢٠٠ نقطة هدية في شهر ميلادك" data-en="200 bonus points during your birthday month">٢٠٠ نقطة هدية في شهر ميلادك</span></div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: Coupons -->
+                    <div class="account-tab-panel" id="tab-coupons">
+                        <h3 class="lang-text" data-ar="كوبوناتي" data-en="My Coupons">كوبوناتي</h3>
+                        <div class="coupon-card">
+                            <div class="coupon-code">
+                                <span class="coupon-code-text en-num">REMAL10</span>
+                                <button class="coupon-copy-btn" onclick="copyCoupon(this, 'REMAL10')">
+                                    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                </button>
+                            </div>
+                            <div class="coupon-info">
+                                <div class="coupon-discount lang-text" data-ar="خصم 10%" data-en="10% OFF">خصم 10%</div>
+                                <div class="coupon-expiry en-num">Valid until May 31, 2026</div>
+                            </div>
+                            <span class="coupon-badge badge-active lang-text" data-ar="مفعّل" data-en="Active">مفعّل</span>
+                        </div>
+                        <div class="coupon-card">
+                            <div class="coupon-code">
+                                <span class="coupon-code-text en-num">WELCOME100</span>
+                                <button class="coupon-copy-btn" onclick="copyCoupon(this, 'WELCOME100')">
+                                    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                </button>
+                            </div>
+                            <div class="coupon-info">
+                                <div class="coupon-discount lang-text" data-ar="خصم 100 ج.م" data-en="100 EGP OFF">خصم 100 ج.م</div>
+                                <div class="coupon-expiry en-num">Expired Apr 01, 2026</div>
+                            </div>
+                            <span class="coupon-badge badge-expired lang-text" data-ar="منتهي" data-en="Expired">منتهي</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= 404 PAGE ================= -->
+    <section id="notfound" class="page-section">
+        <div class="page-404">
+            <div class="sand-404" id="sand404">
+                404
+                <div class="sand-404-grains" id="sandGrains"></div>
+            </div>
+            <h2 class="message-404 lang-text" data-ar="ضاعت في الرمال..." data-en="Lost in the sand...">ضاعت في الرمال...</h2>
+            <p class="sub-404 lang-text" data-ar="الصفحة اللي بتدور عليها اتشالت بالريح" data-en="The page you are looking for was carried away by the wind.">الصفحة اللي بتدور عليها اتشالت بالريح</p>
+            <p class="countdown-404" id="countdown404"><span class="lang-text" data-ar="العودة للرئيسية خلال" data-en="Returning home in">العودة للرئيسية خلال</span> <span id="countNum" class="en-num">10</span></p>
+            <button class="btn-luxury" onclick="navigate('home')" style="min-width: 200px; justify-content: center;">
+                <span class="lang-text" data-ar="ارجع للرئيسية" data-en="GO HOME">ارجع للرئيسية</span>
+            </button>
+        </div>
+    </section>
+
+
+
+
+    
+    <footer>
+        <div class="footer-grid">
+            
+            <div class="footer-brand">
+                <div style="margin-bottom: 20px; display: flex; align-items: flex-start; justify-content: flex-start; width: 100%;">
+                    <svg id="Layer_1_footer" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1948.64 828.483" style="height: 48px; width: auto; fill: var(--black) !important; stroke: none;">
+                        <path d="M896.375,1428.448q-37.806,17.167-94.474,30.058a509.976,509.976,0,0,1-113.365,12.883q-51.532,0-89.749-14.6t-63.124-41.656q-24.923-27.053-37.363-64.84-12.456-37.782-12.451-84.168a413.039,413.039,0,0,1,10.306-90.606,524.223,524.223,0,0,1,27.482-87.172l6.013,4.293a633.252,633.252,0,0,0-18.036,60.979,268.088,268.088,0,0,0-7.729,63.552q0,44.67,17.607,73.431a126.968,126.968,0,0,0,46.377,45.091q28.761,16.322,64.84,22.329a442.948,442.948,0,0,0,73,6.013,425.158,425.158,0,0,0,53.678-3.436q27.054-3.421,52.818-9.018,25.769-5.579,48.525-12.454a331.4,331.4,0,0,0,39.936-14.6l-9.446-516.166,21.472-6.869v380.467q0,22.342-.432,44.229-.442,21.9-1.288,44.232-.867,22.342-2.576,47.234Zm36.931-547.083-29.2,18.035,8.589-97.906Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M1002.011,808.363l21.472-6.869-6.873,391.63q-.865,41.227,25.765,57.974,26.61,16.745,91.9,16.748v108.212q-37.8,0-63.124-9.017a83.561,83.561,0,0,1-40.795-30.49q-15.459-21.454-21.9-56.683-6.446-35.2-6.442-87.6Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M1121.377,1363.176v-82.448l12.882-12.882h177.782v108.212H1134.259Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M1299.145,1363.176v-82.448l12.882-12.882H1489.8v108.212H1312.027Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M1476.913,1363.176v-82.448l12.883-12.882H1667.57v108.212H1489.8Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M1654.675,1363.176v-82.448l12.882-12.882h177.778v108.212H1667.557Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M1832.446,1363.176v-82.448l12.883-12.882a390.777,390.777,0,0,0,74.286-6.873q35.629-6.863,55.4-16.316,6-23.188,16.315-57.114a388.223,388.223,0,0,1,26.2-64.844q15.878-30.918,38.215-53.247t51.53-22.328q20.608,0,40.368,12.882,19.742,12.879,36.5,36.5,16.745,23.632,30.055,56.255,13.308,32.65,20.187,73l-49.817,97.907-199.247-83.308v97.91q-27.5,16.32-63.13,27.053t-76.863,10.734Zm256.793-281.7a55.9,55.9,0,0,0-24.477,5.153,80.989,80.989,0,0,0-19.324,12.882,88.608,88.608,0,0,0-14.6,16.748q-6.016,9.018-10.306,16.75l204.406,86.741a313.643,313.643,0,0,0-27.053-54.535,249.207,249.207,0,0,0-34.351-43.8q-18.486-18.457-37.366-29.2Q2107.27,1081.48,2089.239,1081.475Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M2426.76,1296.187q0-14.6-5.153-33.494a329.186,329.186,0,0,0-14.171-40.368,407.8,407.8,0,0,0-22.332-44.66q-13.327-23.189-28.773-45.517l16.322-24.908q27.473,40.38,44.657,90.18,17.172,49.82,17.179,92.754a337.591,337.591,0,0,1-9.018,76.007,444.092,444.092,0,0,1-24.476,75.15,450.879,450.879,0,0,1-36.071,67.849q-20.619,31.764-43.8,54.106-61.845-3.441-102.634-15.031t-70-27.053l2.576-6.869a104.86,104.86,0,0,0,24.052,11.594,142.391,142.391,0,0,0,25.765,6.441l-23.189-3.436q19.763-2.576,45.514-14.171a475.94,475.94,0,0,0,53.681-28.77,493.305,493.305,0,0,0,54.538-39.079,393.854,393.854,0,0,0,48.091-46.805,238.142,238.142,0,0,0,34.357-51.53Q2426.756,1321.963,2426.76,1296.187Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M1243.649,941.405l549.226-124.741,10.254,25.115L1253.311,955.713Z" transform="translate(-485.849 -801.494)"/>
+                        <path d="M2243.066,1625.262l180.981-41.1,3.379,8.276-181.176,37.543Z" transform="translate(-485.849 -801.494)"/>
+                    </svg>
+                </div>
+                <p class="lang-text" data-ar="نصمم عطور نيش فاخرة تترجم هويتك إلى رائحة لا تُنسى. صنع بفخر في قلب مصر." data-en="Crafting luxury niche perfumes that translate your identity into an unforgettable scent. Proudly made in Egypt.">نصمم عطور نيش فاخرة تترجم هويتك إلى رائحة لا تُنسى. صنع بفخر في قلب مصر.</p>
+            </div>
+            
+            <div class="footer-col">
+                <h4 class="lang-text" data-ar="اكتشف رمال" data-en="DISCOVER REMAL">اكتشف رمال</h4>
+                <ul>
+                    <li><a onclick="navigate('perfumes')" class="lang-text" data-ar="المجموعة الكاملة" data-en="Full Collection">المجموعة الكاملة</a></li>
+                    <li><a onclick="navigate('bundles')" class="lang-text" data-ar="الباقات الموسمية" data-en="Seasonal Bundles">الباقات الموسمية</a></li>
+                    <li><a onclick="navigate('collections')" class="lang-text" data-ar="مجموعات الاستكشاف" data-en="Discovery Sets">مجموعات الاستكشاف</a></li>
+                    <li><a onclick="navigate('about')" class="lang-text" data-ar="حكايتنا" data-en="Our Story">حكايتنا</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-col">
+                <h4 class="lang-text" data-ar="خدمة العملاء" data-en="CUSTOMER CARE">خدمة العملاء</h4>
+                <ul>
+                    <li><a onclick="navigate('tracking')" class="lang-text" data-ar="تتبع طلبك" data-en="Track Order">تتبع طلبك</a></li>
+                    <li><a onclick="navigate('shipping')" class="lang-text" data-ar="سياسة الشحن" data-en="Shipping Policy">سياسة الشحن</a></li>
+                    <li><a onclick="navigate('return')" class="lang-text" data-ar="سياسة الاسترجاع" data-en="Refund Policy">سياسة الاسترجاع</a></li>
+                    <li><a onclick="navigate('contact')" class="lang-text" data-ar="تواصل معنا" data-en="Contact Us">تواصل معنا</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-newsletter">
+                <h4 class="lang-text" data-ar="القائمة البريدية" data-en="NEWSLETTER">القائمة البريدية</h4>
+                <p class="lang-text" data-ar="اشترك عشان يوصلك كل جديد وخصومات حصرية." data-en="Subscribe for the latest drops and exclusive offers." style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">اشترك عشان يوصلك كل جديد وخصومات حصرية.</p>
+                <form id="newsletterForm" onsubmit="event.preventDefault(); submitNewsletter(this);">
+                    <input type="email" class="en-num" placeholder="Email Address" required>
+                    <button type="submit" class="btn-luxury" style="width:100%; padding:15px; justify-content:center; text-transform: uppercase; font-size: 12px; letter-spacing: 1px;">
+                        <span class="lang-text" data-ar="اشترك الآن" data-en="SUBSCRIBE">اشترك الآن</span>
+                    </button>
+                    <div class="newsletter-msg" style="font-size:12px;margin-top:8px;"></div>
+                </form>
+            </div>
+
+        </div>
+        
+        <div class="footer-bottom">
+            <p class="lang-text" data-ar="© 2026 REMAL FRAGRANCES. جميع الحقوق محفوظة." data-en="© 2026 REMAL FRAGRANCES. All Rights Reserved.">© <span class="en-num">2026</span> REMAL FRAGRANCES. جميع الحقوق محفوظة. <a href="remal-dashboard.html" target="_blank" style="color:var(--text-muted); text-decoration:none; font-size:11px; margin-inline-start:14px; opacity:0.5;" title="لوحة تحكم الشركاء">·&nbsp;Admin</a></p>
+            <!-- الأيقونات دي كانت <svg> مجردة من غير أي رابط — شكل بس ومش بتودّي حتة.
+                 rel="me" بيربط الحساب بالموقع رسميًا (إشارة هوية لمحركات البحث)،
+                 و noopener لازم مع target=_blank عشان الصفحة الجديدة ما تقدرش
+                 تتحكم في صفحتنا. -->
+            <div class="social-icons">
+                <a href="https://www.facebook.com/share/18HAGRXrtt/" target="_blank" rel="me noopener noreferrer"
+                   aria-label="Remal Fragrances on Facebook" title="Facebook">
+                    <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+                </a>
+                <a href="https://www.instagram.com/remalfragrances" target="_blank" rel="me noopener noreferrer"
+                   aria-label="Remal Fragrances on Instagram" title="Instagram">
+                    <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+
+<!-- ================= SHARED API LAYER ================= -->
+<script>
+(function () {
+    'use strict';
+    // Production: API is served from the SAME origin as the storefront (wwwroot on MonsterASP.NET).
+    // Local dev: API is on https://localhost:7000.
+    const _isLocal = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+    const API_BASE = _isLocal ? 'https://localhost:7000/api' : '/api';
+    const TOKEN_KEY = 'remal_access_token';
+    // مؤشّر ثابت إن المستخدم كان مسجّل دخول — عشان نجرّب تجديد صامت عند فتح الصفحة
+    // من غير ما نضايق الزائر العادي بطلب /auth/refresh فاشل كل مرة.
+    const SESS_HINT_KEY = 'remal_has_session';
+
+    let memToken = null;
+    function getToken() {
+        if (memToken) return memToken;
+        // localStorage (مش sessionStorage) عشان الجلسة تفضل بعد الريفريش وفتح تاب جديد وإعادة فتح المتصفح.
+        try { memToken = localStorage.getItem(TOKEN_KEY) || null; } catch (e) {}
+        return memToken;
+    }
+    function setToken(t) {
+        memToken = t || null;
+        try {
+            if (t) { localStorage.setItem(TOKEN_KEY, t); localStorage.setItem(SESS_HINT_KEY, '1'); }
+            else { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(SESS_HINT_KEY); }
+        } catch (e) {}
+    }
+
+    // ترجمة رسائل الأخطاء. الرسائل دي بتظهر للعميل في أسوأ لحظة (انقطاع شبكة
+    // أثناء الدفع) — وكانت **عربي ثابت** حتى لو الموقع إنجليزي.
+    // بنقرا اللغة من <html lang> مباشرة مش من t() العامة، لأن t() معرّفة في بلوك
+    // <script> تاني ومش مضمون إنها اتحمّلت وقت ما بلوك الـ API ده بيشتغل.
+    function _apiT(ar, en) {
+        try { return document.documentElement.lang === 'en' ? en : ar; }
+        catch (e) { return ar; }
+    }
+
+    // Custom error carrying the localized envelope message + validation errors
+    class ApiError extends Error {
+        constructor(message, opts) {
+            super(message || _apiT('حصل خطأ غير متوقع', 'An unexpected error occurred'));
+            this.name = 'ApiError';
+            this.status = opts && opts.status;
+            this.errorCode = opts && opts.errorCode;
+            this.errors = opts && opts.errors;
+            this.isNetwork = !!(opts && opts.isNetwork);
+        }
+    }
+
+    let refreshPromise = null;
+    function doRefresh() {
+        if (refreshPromise) return refreshPromise;
+        refreshPromise = fetch(API_BASE + '/auth/refresh', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        }).then(async (res) => {
+            if (!res.ok) throw new ApiError(_apiT('انتهت الجلسة', 'Session expired'), { status: res.status });
+            const json = await res.json();
+            if (!json.success || !json.data || !json.data.accessToken) throw new ApiError(_apiT('انتهت الجلسة', 'Session expired'));
+            setToken(json.data.accessToken);
+            return json.data.accessToken;
+        }).finally(() => { refreshPromise = null; });
+        return refreshPromise;
+    }
+
+    /**
+     * Core fetch wrapper.
+     *  - prepends API base, sends credentials (refresh cookie)
+     *  - attaches Bearer token automatically
+     *  - on 401 once: refreshes then retries
+     *  - unwraps { success, data } → returns data
+     *  - throws ApiError (Arabic message) on success:false / ProblemDetails / network
+     */
+    async function apiFetch(path, options) {
+        options = options || {};
+        const url = path.startsWith('http') ? path : API_BASE + path;
+        const headers = Object.assign({}, options.headers || {});
+        let body = options.body;
+        if (body !== undefined && body !== null && typeof body !== 'string' && !(body instanceof FormData)) {
+            body = JSON.stringify(body);
+            headers['Content-Type'] = 'application/json';
+        }
+        const token = getToken();
+        if (token && !options.noAuth) headers['Authorization'] = 'Bearer ' + token;
+
+        let res;
+        try {
+            res = await fetch(url, {
+                method: options.method || 'GET',
+                credentials: 'include',
+                headers: headers,
+                body: body
+            });
+        } catch (e) {
+            // انقطاع أثناء إقلاع التطبيق — محاولة واحدة كمان قبل ما نقول للعميل إن فيه مشكلة
+            if (!options._infraRetried) {
+                await new Promise(function (r) { setTimeout(r, 1500); });
+                return apiFetch(path, Object.assign({}, options, { _infraRetried: true }));
+            }
+            throw new ApiError(_apiT('تعذّر الاتصال بالخادم — تأكد إنك أونلاين وحاول تاني',
+                                     'Could not reach the server — check your connection and try again'), { isNetwork: true });
+        }
+
+
+        // ===== إعادة محاولة واحدة للأخطاء المؤقتة =====
+        // الاستضافة المشتركة بتعيد تشغيل التطبيق لما يقعد فاضي، وأول طلب بعدها بيرجع
+        // 502/503/504 أو بينقطع وهو بيستنى الإقلاع. دي حالة مؤقتة بتعدي في ثواني —
+        // إعادة المحاولة هي التصرف الصحيح، مش إخفاء لخطأ حقيقي: لو السيرفر فعلاً واقع
+        // المحاولة التانية هتفشل والرسالة هتظهر عادي.
+        if (!options._infraRetried && (res.status === 502 || res.status === 503 || res.status === 504)) {
+            await new Promise(function (r) { setTimeout(r, 1500); });
+            return apiFetch(path, Object.assign({}, options, { _infraRetried: true }));
+        }
+
+        // Auto-refresh on 401 (once), unless this *is* an auth call
+        if (res.status === 401 && !options._retried && !options.noAuth && !path.includes('/auth/')) {
+            try {
+                await doRefresh();
+            } catch (e) {
+                setToken(null);
+                window.dispatchEvent(new CustomEvent('remal:auth-expired'));
+                throw new ApiError(_apiT('انتهت الجلسة — سجّل الدخول تاني', 'Session expired — please sign in again'), { status: 401 });
+            }
+            return apiFetch(path, Object.assign({}, options, { _retried: true }));
+        }
+
+        if (res.status === 204) return null;
+
+        let json = null;
+        const text = await res.text();
+        if (text) { try { json = JSON.parse(text); } catch (e) {} }
+
+        if (!res.ok) {
+            // RFC7807 ProblemDetails OR ApiResponse.Fail
+            const msg = (json && (json.message || json.title))
+                || _apiT('حصل خطأ (', 'An error occurred (') + res.status + ')';
+            throw new ApiError(msg, {
+                status: res.status,
+                errorCode: json && json.errorCode,
+                errors: json && json.errors
+            });
+        }
+        if (json && json.success === false) {
+            throw new ApiError(json.message || _apiT('فشلت العملية', 'The operation failed'), {
+                status: res.status,
+                errorCode: json.errorCode,
+                errors: json.errors
+            });
+        }
+        // Unwrap envelope; some endpoints (health) may not be wrapped
+        if (json && Object.prototype.hasOwnProperty.call(json, 'success')) {
+            return json.data === undefined ? null : json.data;
+        }
+        return json;
+    }
+
+    // In-memory cache for rarely-changing public data
+    const _cache = {};
+    async function cached(key, ttlMs, loader) {
+        const hit = _cache[key];
+        if (hit && (Date.now() - hit.t) < ttlMs) return hit.v;
+        const v = await loader();
+        _cache[key] = { t: Date.now(), v: v };
+        return v;
+    }
+    function clearCache(key) { key ? delete _cache[key] : Object.keys(_cache).forEach(k => delete _cache[k]); }
+
+    window.RemalAPI = {
+        BASE: API_BASE,
+        fetch: apiFetch,
+        getToken: getToken,
+        setToken: setToken,
+        isAuthed: function () { return !!getToken(); },
+        // تجديد صامت عبر كوكي الـ refresh — مُصدَّر عشان boot() (في سكربت بلوك تاني) يقدر يستدعيه.
+        refresh: doRefresh,
+        ApiError: ApiError,
+        cached: cached,
+        clearCache: clearCache
+    };
+})();
+</script>
+
+    <script src="/assets/app-core.js?v=ce2cc4e80d" defer></script>
+
+<!-- ================= PHASE 2: BACKEND WIRING ================= -->
+    <script src="/assets/app-shop.js?v=b1f434fb36" defer></script>
+</body>
+</html>
