@@ -1,0 +1,54 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Pp]ublish/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# .NET
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.tlog
+artifacts/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Rider
+*.DotSettings
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.local
+.env.production
+secrets.json
+
+# Logs
+logs/
+Logs/
+*.log
+
+# NuGet
+*.nupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
